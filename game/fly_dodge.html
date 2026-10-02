@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Fly dodge · male-CNS connectome</title>
+<style>
+:root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  --bg: #e6ebf1; --panel: #f6f8fb; --ink: #17202b; --muted: #556476; --line: #c3ceda;
+  --arena: #dbe6f1; --floor: #8ea3b9; --fly: #1652d6; --exc: #d9822b; --inh: #7b4bc9;
+  --dn: #138f80; --hit: #d23a2f; --obs: #46566a; --overlay: rgba(230, 235, 241, 0.94);
+  --accent: #1652d6; --accent-ink: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --panel: #151c26; --ink: #e6ecf3; --muted: #93a2b5; --line: #2a3646;
+    --arena: #111a25; --floor: #34475d; --fly: #5b93ff; --exc: #f0a04b; --inh: #ad86f0;
+    --dn: #3fcfbd; --hit: #ff6b5e; --obs: #8a9bb0; --overlay: rgba(14, 19, 26, 0.94);
+    --accent: #5b93ff; --accent-ink: #0b1220;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --panel: #151c26; --ink: #e6ecf3; --muted: #93a2b5; --line: #2a3646;
+  --arena: #111a25; --floor: #34475d; --fly: #5b93ff; --exc: #f0a04b; --inh: #ad86f0;
+  --dn: #3fcfbd; --hit: #ff6b5e; --obs: #8a9bb0; --overlay: rgba(14, 19, 26, 0.94);
+  --accent: #5b93ff; --accent-ink: #0b1220;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.5 "Avenir Next", "Segoe UI", "Helvetica Neue", Roboto, system-ui, sans-serif;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 18px 16px 28px; }
+h1 { font-size: 22px; line-height: 1.2; margin: 0 0 4px; font-weight: 650; letter-spacing: -0.01em; }
+.sub { margin: 0 0 14px; color: var(--muted); max-width: 70ch; }
+.stage { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 860px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.card h2 { font-size: 13px; font-weight: 650; margin: 0 0 6px; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0 0 8px; }
+.arenaWrap { position: relative; }
+canvas { display: block; width: 100%; border-radius: 6px; background: var(--arena); }
+#arena { aspect-ratio: 900 / 620; touch-action: none; cursor: crosshair; }
+#circuit { aspect-ratio: 520 / 620; background: transparent; }
+.overlay {
+  position: absolute; inset: 0; background: var(--overlay); border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; padding: 16px; text-align: center;
+}
+.overlay[hidden] { display: none; }
+.loaderBox { max-width: 440px; }
+.loaderBox h3 { margin: 0 0 6px; font-size: 16px; }
+.loaderBox p { margin: 0 0 10px; color: var(--muted); }
+.loaderBox.drag { outline: 2px dashed var(--accent); outline-offset: 8px; }
+.err { color: var(--hit); min-height: 1.4em; margin-top: 8px; }
+button, .btn {
+  font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 7px; padding: 6px 11px; cursor: pointer;
+}
+button:hover, .btn:hover { border-color: var(--muted); }
+button.primary, .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:focus-visible, .btn:focus-visible, input:focus-visible, summary:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+textarea { width: 100%; height: 90px; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+details.paste { margin-top: 10px; text-align: left; }
+details.paste summary { cursor: pointer; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.hover { min-height: 2.9em; font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.status { font-size: 13px; margin-top: 6px; min-height: 2.8em; }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin-top: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+label.sl { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; margin-bottom: 8px; font-size: 13px; }
+label.sl input { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+label.sl output { color: var(--muted); font-variant-numeric: tabular-nums; }
+label.ck { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; cursor: pointer; }
+label.ck input { accent-color: var(--accent); }
+.score { display: flex; gap: 22px; font-variant-numeric: tabular-nums; }
+.score b { display: block; font-size: 26px; line-height: 1.1; font-weight: 650; }
+.score span { color: var(--muted); font-size: 12.5px; }
+details.notes { margin-top: 14px; }
+details.notes summary { cursor: pointer; font-weight: 650; }
+details.notes p, details.notes li { max-width: 78ch; color: var(--muted); }
+details.notes b { color: var(--ink); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Fly dodge</h1>
+  <p class="sub">Drop obstacles on the blue fly. Its steering comes from a rate model wired with real synapse counts from the male CNS connectome (v1.0), not from hand-written dodge rules.</p>
+
+  <div class="stage">
+    <section class="card" aria-label="Arena">
+      <p class="hint">Click to drop an obstacle where you click. Hold the button down first to make it bigger.</p>
+      <div class="arenaWrap">
+        <canvas id="arena" role="img" aria-label="Arena with a blue fly at the bottom and falling obstacles"></canvas>
+        <div class="overlay" id="loader">
+          <div class="loaderBox" id="loaderBox">
+            <h3>Load the circuit file</h3>
+            <p>Choose <b>flybrain_circuit.json</b>, the file your export script wrote. It is read in your browser and goes nowhere else.</p>
+            <label class="btn primary" for="file" tabindex="0" id="fileBtn">Choose file</label>
+            <input type="file" id="file" accept=".json,application/json">
+            <p style="margin-top:10px">or drop it onto this box</p>
+            <details class="paste">
+              <summary>Paste the JSON instead</summary>
+              <textarea id="pasteBox" spellcheck="false" placeholder='{"meta": ..., "nodes": [...], "edges": [...]}'></textarea>
+              <div class="row" style="margin-top:6px"><button id="pasteBtn">Load pasted JSON</button></div>
+            </details>
+            <div class="err" id="loadErr" role="alert"></div>
+          </div>
+        </div>
+      </div>
+      <div class="status" id="status" aria-live="polite">Waiting for the circuit file.</div>
+    </section>
+
+    <section class="card" aria-label="Circuit">
+      <h2>What the fly's brain is doing</h2>
+      <div class="legend">
+        <span><i style="background:var(--exc)"></i>excitatory (acetylcholine)</span>
+        <span><i style="background:var(--inh)"></i>inhibitory (GABA, glutamate)</span>
+        <span><i style="background:var(--dn)"></i>descending neurons</span>
+      </div>
+      <canvas id="circuit" role="img" aria-label="Circuit diagram: looming detectors, interneurons and descending neurons, coloured by activity"></canvas>
+      <div class="hover" id="hover">Hover a node to see its cell type, size and activity.</div>
+    </section>
+  </div>
+
+  <div class="controls">
+    <section class="card">
+      <h2>Drops</h2>
+      <div class="row">
+        <button id="dropBtn">Drop one</button>
+        <button id="rainBtn" aria-pressed="false">Rain</button>
+        <button id="clearBtn">Clear</button>
+        <button id="pauseBtn" aria-pressed="false">Pause</button>
+      </div>
+      <label class="sl">Drop height <output id="dropOut"></output>
+        <input type="range" id="drop" min="40" max="98" value="94"></label>
+    </section>
+    <section class="card">
+      <h2>Brain</h2>
+      <label class="sl">Looming threshold (lower reacts earlier) <output id="sensOut"></output>
+        <input type="range" id="sens" min="8" max="80" value="25"></label>
+      <label class="sl">Network gain <output id="gainOut"></output>
+        <input type="range" id="gain" min="30" max="300" value="100"></label>
+      <label class="sl">Left/right decisiveness <output id="kapOut"></output>
+        <input type="range" id="kap" min="2" max="20" value="10"></label>
+      <div id="silence"></div>
+      <label class="ck"><input type="checkbox" id="shuffle"> Control: rewire the connections at random</label>
+      <label class="ck"><input type="checkbox" id="brainOff"> Control: cut the brain (fly only drifts home)</label>
+    </section>
+    <section class="card">
+      <h2>Score</h2>
+      <div class="score">
+        <div><b id="dodged">0</b><span>dodged</span></div>
+        <div><b id="hits">0</b><span>hit</span></div>
+      </div>
+      <div class="row" style="margin-top:10px"><button id="resetBtn">Reset score</button><button id="reloadBtn">Load another file</button></div>
+      <p class="hint" style="margin:8px 0 0">Only drops that were on course to hit the fly count as dodged. Obstacles burst when they reach the floor.</p>
+    </section>
+  </div>
+
+  <details class="notes">
+    <summary>What comes from the connectome and what I assumed</summary>
+    <p><b>From the data:</b> which cell types connect to which (synapse counts between cell type and body side), whether each type is likely excitatory or inhibitory (predicted neurotransmitter), and how strongly each descending neuron is driven by the left or right eye. Nothing about those connections is invented here.</p>
+    <p><b>My modelling choices:</b></p>
+    <ul>
+      <li>Each obstacle becomes a looming signal: how fast it grows on the fly's retina, counted only if it is on course to hit. Every detector type (LPLC2, LC4, LC6, LPLC1) gets the same signal for its own eye. The data doesn't tell me how each type differs in tuning.</li>
+      <li>Each cell type and side is one unit with a firing rate between 0 and 1. Inputs are weighted by synapses per receiving neuron, then squashed. Thresholds are set automatically from the loaded file.</li>
+      <li>Activity in left-side descending neurons pushes the fly right, and the reverse. When both sides fire equally the fly backs away (down) instead. This is one rule for all descending neurons; I did not assign roles to individual ones.</li>
+      <li>The fly goes up only through a weak drift back to its home spot. The tables have no information about where in the visual field a neuron looks, so up and down cannot be read from the wiring.</li>
+      <li>Sign: acetylcholine counts as excitatory, GABA and glutamate as inhibitory (glutamate can be either in flies). Unknown transmitters have no effect.</li>
+    </ul>
+    <p>The two controls in the Brain panel test whether the wiring matters. Rewiring keeps every connection strength but sends each one to a random target cell type, so left/right structure is lost.</p>
+  </details>
+</main>
+
+<script id="core">
+const FlyCore = (function () {
+  'use strict';
+  const CFG = {
+    W: 900, H: 620, g: 900, dt: 1 / 120,
+    flyR: 7, burstTime: 0.35,
+    vmax: 560, tauV: 0.05,
+    homeX: 450, homeY: 135, kHome: 3.0, vHome: 200, flyMaxY: 430,
+    tauNode: 0.03, refLoom: 0.8
+  };
+  const DEFAULTS = { sens: 0.25, gain: 1, dropFrac: 0.94, T0: 0.35, retreat: 0.5, kappa: 10 };
+
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  function randn(rand) {
+    let u = 0, v = 0;
+    while (u === 0) u = rand();
+    while (v === 0) v = rand();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  class Brain {
+    constructor(circuit, opts) {
+      opts = opts || {};
+      this.rand = opts.rand || Math.random;
+      const nodes = circuit.nodes;
+      this.nodes = nodes;
+      this.N = nodes.length;
+      this.idx = new Map(nodes.map((n, i) => [n.id, i]));
+      this.layer = nodes.map(n => n.layer);
+      this.side = nodes.map(n => n.side || '?');
+      this.type = nodes.map(n => n.type);
+      this.sign = nodes.map(n => (Number.isFinite(n.sign) ? n.sign : 0));
+      this.inputIdx = []; this.interIdx = []; this.dnIdx = [];
+      this.layer.forEach((l, i) => { (l === 'input' ? this.inputIdx : l === 'inter' ? this.interIdx : this.dnIdx).push(i); });
+      this.freeIdx = this.interIdx.concat(this.dnIdx);
+      const pre = [], post = [], w = [], cls = [];
+      for (const e of circuit.edges) {
+        const i = this.idx.get(e.pre), j = this.idx.get(e.post);
+        if (i === undefined || j === undefined || this.layer[j] === 'input') continue;
+        const pp = Number.isFinite(e.per_post_neuron) ? e.per_post_neuron : e.total / Math.max(1, e.n_post || 1);
+        pre.push(i); post.push(j); w.push(this.sign[i] * pp); cls.push(this.layer[i] + '>' + this.layer[j]);
+      }
+      this.E = pre.length;
+      this.pre = Int32Array.from(pre); this.post = Int32Array.from(post); this.post0 = Int32Array.from(post);
+      this.w0 = Float64Array.from(w); this.w = Float64Array.from(w); this.cls = cls;
+      this.a = new Float32Array(this.N);
+      this.drive = new Float32Array(this.N);
+      this.inTarget = new Float32Array(this.N);
+      this.gain = 1; this.noise = 0.04; this.tau = CFG.tauNode;
+      this.scale = { inter: 1, dn: 1 };
+      this.motorScale = 1;
+      this.silenced = new Set();
+      this.calib = null;
+    }
+
+    // Set the automatic scales from a strong one-eyed looming stimulus (uses the real, unshuffled weights).
+    calibrate() {
+      const a = new Float32Array(this.N), drive = new Float32Array(this.N);
+      for (const i of this.inputIdx) a[i] = this.side[i] === 'L' ? CFG.refLoom : this.side[i] === 'R' ? 0 : CFG.refLoom / 2;
+      for (let k = 0; k < this.E; k++) if (this.layer[this.post[k]] === 'inter') drive[this.post[k]] += this.w0[k] * a[this.pre[k]];
+      const med = arr => { const p = arr.filter(v => v > 0).sort((x, y) => x - y); return p.length ? p[p.length >> 1] : 1; };
+      this.scale.inter = med(this.interIdx.map(i => drive[i]));
+      for (const i of this.interIdx) { const x = Math.max(0, drive[i]) / this.scale.inter; a[i] = x / (1 + x); }
+      for (let k = 0; k < this.E; k++) if (this.layer[this.post[k]] === 'dn') drive[this.post[k]] += this.w0[k] * a[this.pre[k]];
+      this.scale.dn = med(this.dnIdx.map(i => drive[i]));
+      let SL = 0, SR = 0, active = 0;
+      for (const i of this.dnIdx) {
+        const x = Math.max(0, drive[i]) / this.scale.dn, v = x / (1 + x);
+        if (v > 0.05) active++;
+        if (this.side[i] === 'L') SL += v; else if (this.side[i] === 'R') SR += v;
+      }
+      this.motorScale = SL > 1e-6 ? 0.8 / SL : 1;
+      this.calib = { L: SL * this.motorScale, R: SR * this.motorScale, activeDN: active };
+      return this.calib;
+    }
+
+    // Control: rewire. Every connection keeps its weight and its source, but its target is swapped with another
+    // connection of the same kind, so left/right structure and cell-type structure are destroyed.
+    setShuffled(on) {
+      this.w.set(this.w0); this.post.set(this.post0);
+      if (!on) return;
+      const groups = {};
+      for (let k = 0; k < this.E; k++) (groups[this.cls[k]] = groups[this.cls[k]] || []).push(k);
+      for (const ks of Object.values(groups)) {
+        const tg = ks.map(k => this.post0[k]);
+        for (let i = tg.length - 1; i > 0; i--) { const j = Math.floor(this.rand() * (i + 1)); const t = tg[i]; tg[i] = tg[j]; tg[j] = t; }
+        ks.forEach((k, n) => { this.post[k] = tg[n]; });
+      }
+    }
+
+    setInputs(aL, aR) {
+      for (const i of this.inputIdx) {
+        let v = this.side[i] === 'L' ? aL : this.side[i] === 'R' ? aR : (aL + aR) / 2;
+        if (this.silenced.has(this.type[i])) v = 0;
+        this.inTarget[i] = v;
+      }
+    }
+
+    step(dt) {
+      const a = this.a, drive = this.drive;
+      for (const i of this.inputIdx) a[i] += (this.inTarget[i] - a[i]) * Math.min(1, dt / 0.02);
+      drive.fill(0);
+      for (let k = 0; k < this.E; k++) drive[this.post[k]] += this.w[k] * a[this.pre[k]];
+      const f = Math.min(1, dt / this.tau);
+      for (const i of this.freeIdx) {
+        const sc = this.layer[i] === 'inter' ? this.scale.inter : this.scale.dn;
+        const x = this.gain * drive[i] / sc + this.noise * randn(this.rand);
+        a[i] += ((x > 0 ? x / (1 + x) : 0) - a[i]) * f;
+      }
+    }
+
+    readout() {
+      let sl = 0, sr = 0;
+      for (const i of this.dnIdx) { if (this.side[i] === 'L') sl += this.a[i]; else if (this.side[i] === 'R') sr += this.a[i]; }
+      return { SL: sl * this.motorScale, SR: sr * this.motorScale };
+    }
+  }
+
+  // Right-eye sensitivity by bearing in degrees (0 = straight ahead/up, + = right). Left eye is the mirror image.
+  function eyeSens(deg) {
+    while (deg > 180) deg -= 360;
+    while (deg <= -180) deg += 360;
+    return smoothstep(-25, 5, deg) * (1 - smoothstep(130, 170, deg));
+  }
+
+  // Looming per eye: expansion rate of each obstacle, gated to collision courses.
+  function sense(fly, obs) {
+    let lL = 0, lR = 0;
+    for (const o of obs) {
+      const px = o.x - fly.x, py = o.y - fly.y;
+      const d = Math.hypot(px, py);
+      if (d < 1) continue;
+      const vx = o.vx - fly.vx, vy = o.vy - fly.vy;
+      const v2 = vx * vx + vy * vy;
+      if (v2 < 25) continue;
+      const dot = px * vx + py * vy;
+      if (dot >= 0) continue;
+      const c = -dot / d;
+      const tca = -dot / v2;
+      const miss = Math.hypot(px + vx * tca, py + vy * tca);
+      const R = o.r + fly.r;
+      const g = Math.exp(-Math.pow(miss / (1.3 * R + 12), 2));
+      const e = o.r * c / (d * d + 0.5 * o.r * o.r);
+      const phi = Math.atan2(px, py) * 180 / Math.PI;
+      const alpha = Math.asin(Math.min(1, o.r / d)) * 180 / Math.PI;
+      let wl = 0, wr = 0; const K = 5;
+      for (let k = 0; k < K; k++) {
+        const ph = phi + alpha * (2 * (k + 0.5) / K - 1);
+        wr += eyeSens(ph); wl += eyeSens(-ph);
+      }
+      lL += (wl / K) * g * e; lR += (wr / K) * g * e;
+    }
+    return { lL, lR };
+  }
+
+  function decode(SL, SR, p) {
+    const T = SL + SR;
+    const drive = T / (T + p.T0);
+    const asym = Math.tanh(p.kappa * (SL - SR) / (SL + SR + 0.05));
+    const sym = 1 - Math.abs(asym);
+    return { T, drive, asym, sym, vx: CFG.vmax * drive * asym, vy: -CFG.vmax * p.retreat * drive * sym };
+  }
+
+  class World {
+    constructor(brain, opts) {
+      opts = opts || {};
+      this.brain = brain;
+      this.rand = opts.rand || Math.random;
+      this.params = Object.assign({}, DEFAULTS);
+      this.brainOn = true;
+      this.rainOn = false;
+      this.reset();
+    }
+    reset() {
+      this.fly = { x: CFG.homeX, y: CFG.homeY, vx: 0, vy: 0, r: CFG.flyR };
+      this.obs = []; this.t = 0; this.rainT = 0.5;
+      this.dodged = 0; this.hits = 0; this.hitFlash = 0;
+      this.trail = []; this.tick = 0;
+      this.aL = 0; this.aR = 0; this.motor = { T: 0, drive: 0, asym: 0, sym: 0, vx: 0, vy: 0 };
+      this.SL = 0; this.SR = 0;
+    }
+    resetScore() { this.dodged = 0; this.hits = 0; }
+    spawn(x, r, y) {
+      r = clamp(r, 6, 70);
+      x = clamp(x, r, CFG.W - r);
+      if (y === undefined) y = this.params.dropFrac * CFG.H;
+      const threat = Math.abs(x - this.fly.x) < r + this.fly.r + 25;
+      this.obs.push({ x, y, vx: 0, vy: 0, r, hit: false, counted: false, threat, landed: false, fade: 0, age: 0 });
+    }
+    clear() { this.obs.length = 0; }
+
+    step(dt) {
+      const rand = this.rand, f = this.fly, p = this.params;
+      this.t += dt; this.tick++;
+      if (this.rainOn) {
+        this.rainT -= dt;
+        if (this.rainT <= 0) {
+          const r = 9 + 46 * Math.pow(rand(), 1.6);
+          this.spawn(r + rand() * (CFG.W - 2 * r), r);
+          this.rainT = 0.45 + rand() * 0.9;
+        }
+      }
+      // obstacle physics: fall under gravity, burst on first ground contact
+      for (const o of this.obs) {
+        o.age += dt;
+        if (o.landed) { o.fade -= dt; continue; }
+        o.vy -= CFG.g * dt; o.y += o.vy * dt;
+        if (o.y - o.r <= 0) {
+          o.y = o.r; o.vy = 0; o.landed = true; o.fade = CFG.burstTime;
+          if (o.threat && !o.hit && !o.counted) { o.counted = true; this.dodged++; }
+        }
+      }
+      // eyes -> brain -> motor
+      const s = sense(f, this.obs.filter(o => !o.landed));
+      const l0 = p.sens, q = l0 * l0;
+      this.aL = s.lL * s.lL / (s.lL * s.lL + q);
+      this.aR = s.lR * s.lR / (s.lR * s.lR + q);
+      this.brain.gain = p.gain;
+      this.brain.setInputs(this.aL, this.aR);
+      this.brain.step(dt);
+      const ro = this.brain.readout();
+      this.SL = ro.SL; this.SR = ro.SR;
+      const m = this.brainOn ? decode(ro.SL, ro.SR, p) : { T: 0, drive: 0, asym: 0, sym: 0, vx: 0, vy: 0 };
+      this.motor = m;
+      const hx = clamp(CFG.kHome * (CFG.homeX - f.x), -CFG.vHome, CFG.vHome);
+      const hy = clamp(CFG.kHome * (CFG.homeY - f.y), -CFG.vHome, CFG.vHome);
+      const calm = 1 - m.drive;
+      f.vx += (m.vx + hx * calm - f.vx) * dt / CFG.tauV;
+      f.vy += (m.vy + hy * calm - f.vy) * dt / CFG.tauV;
+      f.x += f.vx * dt; f.y += f.vy * dt;
+      const x0 = f.r + 4, x1 = CFG.W - f.r - 4, y0 = f.r + 4, y1 = CFG.flyMaxY;
+      if (f.x < x0) { f.x = x0; f.vx = 0; } else if (f.x > x1) { f.x = x1; f.vx = 0; }
+      if (f.y < y0) { f.y = y0; f.vy = 0; } else if (f.y > y1) { f.y = y1; f.vy = 0; }
+      // collisions and scoring
+      this.hitFlash = Math.max(0, this.hitFlash - dt);
+      for (const o of this.obs) {
+        if (o.landed) continue;
+        const dx = f.x - o.x, dy = f.y - o.y, d = Math.hypot(dx, dy);
+        if (!o.hit && d < o.r + f.r) {
+          o.hit = true; this.hits++; this.hitFlash = 0.3;
+          const n = d > 1e-3 ? d : 1;
+          f.vx += (dx / n) * 260; f.vy += (dy / n) * 260;
+        }
+        if (o.threat && !o.hit && !o.counted && o.y + o.r < f.y - f.r) { o.counted = true; this.dodged++; }
+      }
+      this.obs = this.obs.filter(o => !(o.landed && o.fade <= 0));
+      if (this.tick % 4 === 0) { this.trail.push(f.x, f.y); if (this.trail.length > 90) this.trail.splice(0, 2); }
+    }
+  }
+
+  return { CFG, DEFAULTS, Brain, World, sense, decode, eyeSens, clamp };
+})();
+</script>
+
+<script id="ui">
+(function () {
+  'use strict';
+  const { CFG, Brain, World } = FlyCore;
+  const $ = s => document.querySelector(s);
+  const arena = $('#arena'), circ = $('#circuit');
+  const actx = arena.getContext('2d'), cctx = circ.getContext('2d');
+  const CW = 520, CH = 620;
+  let brain = null, world = null, pos = [], wRef = 1, paused = false, hold = null, hoverIdx = -1;
+  const C = {};
+
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    ['bg', 'panel', 'ink', 'muted', 'line', 'arena', 'floor', 'fly', 'exc', 'inh', 'dn', 'hit', 'obs']
+      .forEach(k => { C[k] = cs.getPropertyValue('--' + k).trim(); });
+  }
+  function fit(cv) {
+    const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  }
+
+  // ---------- loading ----------
+  function showError(msg) { $('#loadErr').textContent = msg; }
+  function loadCircuit(obj) {
+    try {
+      if (!obj || !Array.isArray(obj.nodes) || !Array.isArray(obj.edges)) throw new Error('This is not a flybrain_circuit.json file (no nodes/edges lists).');
+      const b = new Brain(obj);
+      if (!b.inputIdx.length || !b.interIdx.length || !b.dnIdx.length) throw new Error('The file needs input, inter and dn nodes.');
+      if (!b.E) throw new Error('The file has no usable edges.');
+      const cal = b.calibrate();
+      brain = b; world = new World(brain);
+      applyControls();
+      buildSilence();
+      layoutCircuit();
+      $('#loader').hidden = true;
+      $('#status').textContent = 'Ready. Loaded ' + b.N + ' units and ' + b.E + ' connections. Calibration: a strong looming object on the left drives left-side descending neurons to ' + cal.L.toFixed(2) + ' and right-side ones to ' + cal.R.toFixed(2) + '.';
+      showError('');
+    } catch (err) { showError(err.message || String(err)); }
+  }
+  function readFile(file) {
+    const fr = new FileReader();
+    fr.onload = () => { try { loadCircuit(JSON.parse(fr.result)); } catch (e) { showError('Could not read that file as JSON.'); } };
+    fr.onerror = () => showError('Could not open that file.');
+    fr.readAsText(file);
+  }
+  $('#file').addEventListener('change', e => { if (e.target.files[0]) readFile(e.target.files[0]); });
+  $('#fileBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#file').click(); } });
+  $('#pasteBtn').addEventListener('click', () => { try { loadCircuit(JSON.parse($('#pasteBox').value)); } catch (e) { showError('That text is not valid JSON.'); } });
+  const box = $('#loaderBox');
+  ['dragenter', 'dragover'].forEach(ev => box.addEventListener(ev, e => { e.preventDefault(); box.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(ev => box.addEventListener(ev, e => { e.preventDefault(); box.classList.remove('drag'); }));
+  box.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) readFile(f); });
+  $('#reloadBtn').addEventListener('click', () => { $('#loader').hidden = false; });
+  // If the page sits next to the JSON on a local web server, load it automatically.
+  try { fetch('flybrain_circuit.json').then(r => (r.ok ? r.json() : null)).then(j => { if (j && !brain) loadCircuit(j); }).catch(() => {}); } catch (e) {}
+
+  // ---------- controls ----------
+  function applyControls() {
+    if (!world) return;
+    world.params.dropFrac = +$('#drop').value / 100;
+    world.params.sens = +$('#sens').value / 100;
+    world.params.gain = +$('#gain').value / 100;
+    world.params.kappa = +$('#kap').value;
+    world.brainOn = !$('#brainOff').checked;
+    $('#dropOut').textContent = $('#drop').value + '%';
+    $('#sensOut').textContent = (+$('#sens').value / 100).toFixed(2);
+    $('#gainOut').textContent = (+$('#gain').value / 100).toFixed(2) + '×';
+    $('#kapOut').textContent = $('#kap').value;
+  }
+  ['drop', 'sens', 'gain', 'kap', 'brainOff'].forEach(id => $('#' + id).addEventListener('input', applyControls));
+  $('#shuffle').addEventListener('change', e => { if (brain) brain.setShuffled(e.target.checked); });
+  function buildSilence() {
+    const types = [...new Set(brain.inputIdx.map(i => brain.type[i]))].sort();
+    const el = $('#silence'); el.textContent = '';
+    types.forEach(t => {
+      const l = document.createElement('label'); l.className = 'ck';
+      const c = document.createElement('input'); c.type = 'checkbox';
+      c.addEventListener('change', () => { if (c.checked) brain.silenced.add(t); else brain.silenced.delete(t); });
+      l.append(c, document.createTextNode('Silence ' + t + ' neurons'));
+      el.append(l);
+    });
+    $('#shuffle').checked = false; $('#brainOff').checked = false;
+  }
+  $('#dropBtn').addEventListener('click', () => { if (world) { const r = 10 + Math.random() * 45; world.spawn(r + Math.random() * (CFG.W - 2 * r), r); } });
+  $('#rainBtn').addEventListener('click', e => { if (!world) return; world.rainOn = !world.rainOn; e.currentTarget.setAttribute('aria-pressed', String(world.rainOn)); });
+  $('#clearBtn').addEventListener('click', () => { if (world) world.clear(); });
+  $('#pauseBtn').addEventListener('click', e => { paused = !paused; e.currentTarget.setAttribute('aria-pressed', String(paused)); e.currentTarget.textContent = paused ? 'Resume' : 'Pause'; });
+  $('#resetBtn').addEventListener('click', () => { if (world) world.resetScore(); });
+
+  // ---------- pointer: click to drop, hold to grow ----------
+  const toX = e => { const r = arena.getBoundingClientRect(); return (e.clientX - r.left) / r.width * CFG.W; };
+  const holdR = () => 8 + 52 * FlyCore.clamp((performance.now() - hold.t0) / 1200, 0, 1);
+  arena.addEventListener('pointerdown', e => { if (!world) return; arena.setPointerCapture(e.pointerId); hold = { x: toX(e), t0: performance.now() }; });
+  arena.addEventListener('pointermove', e => { if (hold) hold.x = toX(e); });
+  arena.addEventListener('pointerup', () => { if (hold && world) world.spawn(hold.x, holdR()); hold = null; });
+  arena.addEventListener('pointercancel', () => { hold = null; });
+
+  // ---------- circuit layout ----------
+  function layoutCircuit() {
+    const bands = { input: { y0: 62, rows: 1, gap: 0 }, inter: { y0: 160, rows: 3, gap: 28 }, dn: { y0: 335, rows: 4, gap: 28 } };
+    pos = new Array(brain.N);
+    Object.keys(bands).forEach(layer => {
+      const b = bands[layer];
+      const groups = { L: [], R: [], C: [] };
+      brain.layer.forEach((l, i) => { if (l === layer) groups[brain.side[i] === 'L' ? 'L' : brain.side[i] === 'R' ? 'R' : 'C'].push(i); });
+      Object.keys(groups).forEach(g => {
+        const ids = groups[g].sort((i, j) => (brain.type[i] < brain.type[j] ? -1 : brain.type[i] > brain.type[j] ? 1 : 0));
+        const cols = Math.max(1, Math.ceil(ids.length / b.rows));
+        const x0 = g === 'L' ? 22 : g === 'R' ? 270 : 250, width = g === 'C' ? 20 : 228;
+        const cw = width / cols;
+        ids.forEach((i, k) => {
+          const row = k % b.rows, col = Math.floor(k / b.rows);
+          const r = layer === 'input' ? 11 : Math.max(3, Math.min(7, cw * 0.38, b.gap ? b.gap * 0.38 : 7));
+          pos[i] = { x: x0 + (col + 0.5) * cw, y: b.y0 + row * b.gap, r };
+        });
+      });
+    });
+    const ws = Array.from(brain.w0, Math.abs).filter(v => v > 0).sort((a, b) => a - b);
+    wRef = ws.length ? ws[Math.floor(ws.length * 0.9)] : 1;
+  }
+
+  // ---------- drawing ----------
+  function drawArena() {
+    fit(arena); const sx = arena.width / CFG.W, sy = arena.height / CFG.H;
+    actx.setTransform(sx, 0, 0, sy, 0, 0);
+    const W = CFG.W, H = CFG.H, Y = y => H - y;
+    actx.fillStyle = C.arena; actx.fillRect(0, 0, W, H);
+    actx.fillStyle = C.floor; actx.fillRect(0, H - 5, W, 5);
+    if (!world) return;
+    actx.strokeStyle = C.muted; actx.globalAlpha = 0.4; actx.setLineDash([6, 8]); actx.lineWidth = 1;
+    const dy = Y(world.params.dropFrac * H);
+    actx.beginPath(); actx.moveTo(0, dy); actx.lineTo(W, dy); actx.stroke();
+    actx.setLineDash([]); actx.globalAlpha = 1;
+    actx.fillStyle = C.muted; actx.font = '11px system-ui, sans-serif'; actx.fillText('drop height', 8, dy - 5);
+    const f = world.fly, fx = f.x, fy = Y(f.y);
+    const wedge = (d0, d1, a) => {
+      actx.beginPath(); actx.moveTo(fx, fy);
+      actx.arc(fx, fy, 95, (-90 + d0) * Math.PI / 180, (-90 + d1) * Math.PI / 180);
+      actx.closePath(); actx.globalAlpha = a; actx.fillStyle = C.exc; actx.fill(); actx.globalAlpha = 1;
+    };
+    wedge(-130, 5, 0.06 + 0.5 * world.aL); wedge(-5, 130, 0.06 + 0.5 * world.aR);
+    const tr = world.trail;
+    for (let k = 2; k < tr.length; k += 2) {
+      actx.globalAlpha = 0.5 * k / tr.length; actx.strokeStyle = C.fly; actx.lineWidth = 2;
+      actx.beginPath(); actx.moveTo(tr[k - 2], Y(tr[k - 1])); actx.lineTo(tr[k], Y(tr[k + 1])); actx.stroke();
+    }
+    actx.globalAlpha = 1;
+    for (const o of world.obs) {
+      actx.beginPath(); actx.arc(o.x, Y(o.y), o.r, 0, 6.2832);
+      actx.globalAlpha = o.landed ? 0.6 * Math.max(0, o.fade / CFG.burstTime) : 0.88; actx.fillStyle = C.obs; actx.fill(); actx.globalAlpha = 1;
+      if (o.hit) { actx.strokeStyle = C.hit; actx.lineWidth = 3; actx.stroke(); }
+    }
+    if (hold) {
+      const r = holdR(); actx.beginPath(); actx.arc(Math.min(Math.max(hold.x, r), W - r), Y(world.params.dropFrac * H), r, 0, 6.2832);
+      actx.globalAlpha = 0.4; actx.fillStyle = C.obs; actx.fill(); actx.globalAlpha = 1;
+      actx.setLineDash([4, 4]); actx.strokeStyle = C.ink; actx.lineWidth = 1.5; actx.stroke(); actx.setLineDash([]);
+    }
+    actx.beginPath(); actx.arc(fx, fy, 8.5, 0, 6.2832);
+    actx.fillStyle = world.hitFlash > 0 ? C.hit : C.fly; actx.fill();
+    actx.lineWidth = 2; actx.strokeStyle = C.panel; actx.stroke();
+  }
+
+  function nodeColor(i) {
+    if (brain.layer[i] === 'dn') return C.dn;
+    if (brain.sign[i] < 0) return C.inh;
+    if (brain.sign[i] > 0) return C.exc;
+    return C.muted;
+  }
+  function drawCircuit() {
+    fit(circ); const sx = circ.width / CW, sy = circ.height / CH;
+    cctx.setTransform(sx, 0, 0, sy, 0, 0); cctx.clearRect(0, 0, CW, CH);
+    if (!brain || !pos.length) return;
+    const a = brain.a;
+    cctx.font = '11px system-ui, sans-serif'; cctx.textBaseline = 'middle';
+    cctx.fillStyle = C.muted;
+    cctx.fillText('left side', 22, 14); cctx.textAlign = 'right'; cctx.fillText('right side', CW - 22, 14); cctx.textAlign = 'left';
+    cctx.fillText('looming detectors', 22, 36); cctx.fillText('interneurons', 22, 134); cctx.fillText('descending neurons', 22, 309);
+    for (let k = 0; k < brain.E; k++) {
+      const i = brain.pre[k], j = brain.post[k], w = brain.w[k];
+      const s = Math.min(1, Math.abs(w) / wRef), act = a[i];
+      cctx.globalAlpha = Math.min(0.9, 0.03 + 0.8 * act * s);
+      cctx.strokeStyle = w >= 0 ? C.exc : C.inh; cctx.lineWidth = 0.4 + 1.6 * act * s;
+      cctx.beginPath(); cctx.moveTo(pos[i].x, pos[i].y); cctx.lineTo(pos[j].x, pos[j].y); cctx.stroke();
+    }
+    cctx.globalAlpha = 1;
+    for (let i = 0; i < brain.N; i++) {
+      const p = pos[i]; if (!p) continue;
+      cctx.beginPath(); cctx.arc(p.x, p.y, p.r, 0, 6.2832);
+      cctx.fillStyle = C.panel; cctx.fill();
+      cctx.globalAlpha = 0.08 + 0.92 * a[i]; cctx.fillStyle = nodeColor(i); cctx.fill(); cctx.globalAlpha = 1;
+      cctx.lineWidth = i === hoverIdx ? 2.5 : 1; cctx.strokeStyle = i === hoverIdx ? C.ink : C.line; cctx.stroke();
+    }
+    const ranked = [...brain.freeIdx].filter(i => a[i] > 0.3).sort((i, j) => a[j] - a[i]).slice(0, 8);
+    cctx.font = '10px system-ui, sans-serif'; cctx.textAlign = 'center'; cctx.lineJoin = 'round';
+    ranked.forEach(i => {
+      const p = pos[i], t = brain.nodes[i].id;
+      cctx.lineWidth = 3; cctx.strokeStyle = C.panel; cctx.strokeText(t, p.x, p.y - p.r - 6);
+      cctx.fillStyle = C.ink; cctx.fillText(t, p.x, p.y - p.r - 6);
+    });
+    cctx.textAlign = 'left';
+    // motor readout
+    const m = world.motor, y0 = 470;
+    cctx.font = '11px system-ui, sans-serif'; cctx.fillStyle = C.muted;
+    cctx.fillText('left-side descending neurons', 22, y0); cctx.fillText('right-side descending neurons', 270, y0);
+    const bar = (x, v) => {
+      cctx.fillStyle = C.line; cctx.fillRect(x, y0 + 10, 228, 12);
+      cctx.fillStyle = C.dn; cctx.fillRect(x, y0 + 10, 228 * Math.min(1, v / 1.2), 12);
+    };
+    bar(22, world.SL); bar(270, world.SR);
+    cctx.fillStyle = C.ink; cctx.font = '12px system-ui, sans-serif';
+    let msg;
+    if (!world.brainOn) msg = 'Brain cut: the fly only drifts home.';
+    else if (m.drive < 0.08) msg = 'No threat: drifting toward home.';
+    else {
+      const parts = [];
+      if (Math.abs(m.asym) > 0.15) parts.push('sidestep ' + (m.asym > 0 ? 'right' : 'left') + ' ' + Math.round(Math.abs(m.asym) * 100) + '%');
+      if (m.sym > 0.15) parts.push('back away ' + Math.round(m.sym * 100) + '%');
+      msg = 'Threat ' + m.drive.toFixed(2) + ' → ' + (parts.join(', ') || 'holding');
+    }
+    cctx.fillText(msg, 22, y0 + 46);
+  }
+
+  // ---------- hover ----------
+  circ.addEventListener('pointermove', e => {
+    if (!brain || !pos.length) return;
+    const r = circ.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * CW, y = (e.clientY - r.top) / r.height * CH;
+    let best = -1, bd = 12;
+    pos.forEach((p, i) => { if (!p) return; const d = Math.hypot(p.x - x, p.y - y) - p.r; if (d < bd) { bd = d; best = i; } });
+    hoverIdx = best;
+    const h = $('#hover');
+    if (best < 0) { h.textContent = 'Hover a node to see its cell type, size and activity.'; return; }
+    const n = brain.nodes[best];
+    const ntName = n.nt || 'unknown';
+    const role = { input: 'looming detector', inter: 'interneuron', dn: 'descending neuron' }[n.layer];
+    h.textContent = n.id + ': ' + role + ', ' + n.n + ' neuron' + (n.n === 1 ? '' : 's') + ', ' + ntName + ' (' + (n.sign > 0 ? 'excitatory' : n.sign < 0 ? 'inhibitory' : 'no effect here') + '), activity ' + brain.a[best].toFixed(2) + '.';
+  });
+  circ.addEventListener('pointerleave', () => { hoverIdx = -1; });
+
+  // ---------- main loop ----------
+  let last = performance.now(), acc = 0, frameNo = 0, lastHud = 0;
+  function frame(now) {
+    const dtReal = Math.min(0.1, (now - last) / 1000); last = now;
+    if (frameNo++ % 45 === 0) readColors();
+    if (world && !paused) {
+      acc += dtReal; let n = 0;
+      while (acc >= CFG.dt && n < 12) { world.step(CFG.dt); acc -= CFG.dt; n++; }
+      if (n === 12) acc = 0;
+    }
+    drawArena(); drawCircuit();
+    if (world && now - lastHud > 150) {
+      lastHud = now;
+      $('#dodged').textContent = world.dodged; $('#hits').textContent = world.hits;
+    }
+    requestAnimationFrame(frame);
+  }
+  readColors(); applyControls();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
