@@ -1,57 +1,5 @@
-<p align="center"><svg viewBox="0 0 1200 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fly Dodge: connectome data to extracted circuit to interactive demo" xmlns:c2pa="http://c2pa.org/manifest"><metadata></metadata>
-  <defs>
-    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-      <path d="M0 0L10 5L0 10z" fill="#8a97aa"/>
-    </marker>
-  </defs>
-  <text x="600" y="48" text-anchor="middle" font-family="Georgia, 'Iowan Old Style', serif" font-size="40" font-weight="700" fill="#5b7bd8">FLY DODGE</text>
-  <text x="600" y="76" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#8a97aa">A connectome-steered sensorimotor circuit, extracted and played</text>
-
-  <!-- stage 1: data -->
-  <g transform="translate(90,130)">
-    <ellipse cx="0" cy="-28" rx="46" ry="12" fill="none" stroke="#8a97aa" stroke-width="1.6"/>
-    <path d="M -46 -28 L -46 24 A 46 12 0 0 0 46 24 L 46 -28" fill="none" stroke="#8a97aa" stroke-width="1.6"/>
-    <path d="M -46 -2 A 46 12 0 0 0 46 -2" fill="none" stroke="#8a97aa" stroke-width="1.2" opacity=".6"/>
-    <text x="0" y="60" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13.5" fill="#8a97aa">Connectome data</text>
-    <text x="0" y="78" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#8a97aa">211,577 neurons</text>
-  </g>
-  <line x1="165" y1="130" x2="325" y2="130" stroke="#8a97aa" stroke-width="1.6" marker-end="url(#ar)"/>
-
-  <!-- stage 2: circuit -->
-  <g transform="translate(455,130)">
-    <circle cx="-55" cy="-30" r="7" fill="none" stroke="#5b7bd8" stroke-width="1.8"/>
-    <circle cx="-55" cy="10" r="7" fill="none" stroke="#5b7bd8" stroke-width="1.8"/>
-    <circle cx="0" cy="-10" r="7" fill="none" stroke="#d9822b" stroke-width="1.8"/>
-    <circle cx="0" cy="30" r="7" fill="none" stroke="#7b4bc9" stroke-width="1.8"/>
-    <circle cx="55" cy="0" r="7" fill="none" stroke="#138f80" stroke-width="1.8"/>
-    <g stroke="#8a97aa" stroke-width="1" opacity=".75">
-      <line x1="-48" y1="-30" x2="-7" y2="-11"/>
-      <line x1="-48" y1="10" x2="-7" y2="-8"/>
-      <line x1="-48" y1="10" x2="-7" y2="28"/>
-      <line x1="7" y1="-10" x2="48" y2="-1"/>
-      <line x1="7" y1="29" x2="48" y2="3"/>
-    </g>
-    <text x="0" y="65" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13.5" fill="#8a97aa">Extracted circuit</text>
-    <text x="0" y="83" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#8a97aa">88 nodes, 482 synapse-weighted edges</text>
-  </g>
-  <line x1="530" y1="130" x2="690" y2="130" stroke="#8a97aa" stroke-width="1.6" marker-end="url(#ar)"/>
-
-  <!-- stage 3: demo -->
-  <g transform="translate(820,130)">
-    <rect x="-55" y="-35" width="110" height="70" rx="10" fill="none" stroke="#8a97aa" stroke-width="1.6"/>
-    <circle cx="-14" cy="0" r="8" fill="none" stroke="#5b7bd8" stroke-width="1.8"/>
-    <circle cx="16" cy="-14" r="5" fill="none" stroke="#8a97aa" stroke-width="1.4"/>
-    <circle cx="22" cy="12" r="7" fill="none" stroke="#8a97aa" stroke-width="1.4"/>
-    <text x="0" y="60" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13.5" fill="#8a97aa">Interactive demo</text>
-    <text x="0" y="78" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#8a97aa">2D and 3D, runs in the browser</text>
-  </g>
-
-  <line x1="60" y1="210" x2="1140" y2="210" stroke="#8a97aa" stroke-width="1" opacity=".35"/>
-  <text x="600" y="238" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#8a97aa">Dataset: MaleCNS v1.0 (FlyEM, HHMI Janelia) · CC-BY</text>
-</svg>
-
-  <img src="docs/banner.svg" alt="Fly Dodge: a connectome-steered escape circuit" <img width="300" height="65" alt="banner" src="https://github.com/user-attachments/assets/6171c730-b9ea-48de-bdfa-b159164e267c" />
-width="760">
+<p align="center">
+  <img src="docs/banner.svg" alt="Fly Dodge: a connectome-steered escape circuit" width="760">
 </p>
 
 <h1 align="center">Fly Dodge</h1>
