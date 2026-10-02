@@ -1,0 +1,52 @@
+Real output from the inspection scripts on the male-CNS v1.0 tables (pasted from the project owner's terminal).
+Wide table rows are shown as selected columns.
+
+== body-annotations-male-cns-v1.0-minconf-0.5.feather  211577 rows
+columns: assignedOlHex1, assignedOlHex2, bodyId, flywireType, group, instance, somaSide, statusLabel, superclass, type, vfbId,
+hemibrainType, itoleeHl, supertype, birthtime, mancBodyid, mancGroup, mancType, subclass, synonyms, class, rootSide, somaNeuromere,
+trumanHl, dimorphism, matchingNotes, entryNerve, mancSerial, mcnsSerial, serialMotif, fruDsx, exitNerve, receptorType,
+somaLocation (list of 3 ints), tosomaLocation, status
+first three rows (selected columns):
+bodyId  type    instance      somaSide  superclass          hemibrainType  subclass  status
+10001   DNp01   DNp01(GF)_R   R         descending_neuron   Giant Fiber    lt        Traced      (synonyms: "Kennedy and Broadie 2018: GF")
+10002   OCG01d  OCG01d_L      L         visual_projection   OCG01          -         Traced
+10003   VCH     VCH_R         R         visual_centrifugal  VCH            -         Traced
+
+== body-neurotransmitters-male-cns-v1.0.feather  1835518 rows
+columns: body int64, cell_type string, total_nt_predictions int32, predicted_nt_confidence double, predicted_nt string, ground_truth string,
+celltype_total_nt_predictions int32, celltype_predicted_nt string, celltype_predicted_nt_confidence double, consensus_nt string
+   body cell_type  total_nt_predictions  predicted_nt_confidence   predicted_nt ground_truth  celltype_total_nt_predictions celltype_predicted_nt  celltype_predicted_nt_confidence   consensus_nt
+0  10001     DNp01                  1015                 0.500496  acetylcholine          NaN                           1991         acetylcholine                          0.528263  acetylcholine
+1  10002    OCG01d                  1443                 0.955895  acetylcholine          NaN                           2818         acetylcholine                          0.956476  acetylcholine
+2  10003       VCH                  4425                 0.879325           gaba         gaba                           8721                  gaba                          0.874799           gaba
+
+== connectome-weights-male-cns-v1.0-minconf-0.5.feather  151856684 rows
+body_pre: int64, body_post: int64, weight: int64
+   body_pre  body_post  weight
+0     10352      10351    2591
+1     13612      16076    2443
+2     10663      10051    2248
+
+== superclass counts (they sum to 211,577)
+ol_intrinsic 89403 | (blank) 44877 | cb_intrinsic 32164 | vnc_intrinsic 13161 | visual_projection 9201 | vnc_sensory 6370
+ol_sensory 6098 | cb_sensory 4868 | ascending_neuron 1846 | descending_neuron 1314 | vnc_motor 708 | visual_centrifugal 563
+sensory_ascending 537 | cb_motor 107 | vnc_efferent 94 | cb_endocrine 72 | ENS 50 | vnc_tbc 38 | vnc_sensory_tbc 36
+vnc_endocrine 22 | cb_sensory_tbc 14 | sensory_descending 12 | efferent_ascending 8 | efferent_descending 4 | cb_efferent 4
+visual_projection_tbc 2 | sensory_ascending_tbc 2 | descending_neuron_tbc 2
+
+== visual_projection types (top 60 by count)
+LC12 498 | TmY14 477 | LC17 353 | LLPC1 285 | LC10a 275 | MeTu1 250 | LLPC2 250 | LPC1 224 | LC9 219 | LLPC3 219 | LC10d 214 | LC18 208
+LPLC2 185 | LC16 182 | LC13 177 | MeTu3c 173 | LPC2 154 | LC21 153 | LC11 143 | LPLC1 134 | LC10c-1 130 | LC4 126 | LC15 126 | LC10c-2 125
+LC6 124 | MeVP1 122 | LC10e 110 | MeVP6 99 | LPLC4 97 | MeTu4a 95 | LC10b 95 | LC24 94 | MeTu4c 87 | MeTu3b 80 | LC20b 79 | MeVP2 76
+LC26 75 | LC22 73 | MeTu2a 70 | MeVP3 69 | LC28 62 | LC20a 62 | MeVP10 61 | LC30 57 | LC25 56 | MeTu4f 56 | MeVP11 55 | LoVP1 52
+MeTu4e 51 | LoVP13 51 | LC27 46 | LoVP2 44 | aMe5 42 | MeTu3a 42 | LoVP12 42 | MeTu4d 40 | MeVP4 40 | LC29 40 | LPT100 40 | LT52 34
+
+== descending_neuron: 1314 neurons, 481 types (top 20 by count)
+DNg08 23 | DNpe008 19 | DNg106 16 | DNg07 16 | DNge091 14 | DNge094 13 | DNg03 12 | DNg06 12 | DNp17 12 | DNg10 12
+DNge019 11 | DNpe015 11 | DNg02_a 10 | DNg12_b 10 | DNge071 10 | DNg12_a 8 | DNg12_c 8 | DNge115 8 | DNge085 8 | DNg36_b 7
+(further down the list: MDN 4, DNb02 4, DNa13 4, a blank type 4, and a multi-type label "DNp51,DNpe019" 4)
+
+== specific types of interest (count, superclass)
+LPLC2 185 visual_projection | LC4 126 visual_projection | LPLC1 134 visual_projection | LC6 124 visual_projection
+LC16 182 visual_projection | LC17 353 visual_projection | LPLC4 97 visual_projection
+DNp01 2, DNp02 2, DNp03 2, DNp04 2, DNp05 2, DNp06 2, DNp07 2, DNp10 2, DNp11 2, DNa02 2, DNb01 2  (all descending_neuron)
