@@ -1,58 +1,161 @@
-# Fly Dodge
+<p align="center">
+  <img src="docs/banner.svg" alt="Fly Dodge: a connectome-steered escape circuit" width="760">
+</p>
 
-A browser game in which a simulated fly dodges falling obstacles. Its steering comes from a rate model wired with real
-synapse counts from the male CNS connectome (release `male-cns:v1.0`). Two versions ship here: a 2D hovering-dot original
-and a 3D free-flight version with a real digitized fly model. Full documentation: open `docs/index.html`.
+<h1 align="center">Fly Dodge</h1>
+<p align="center"><i>A playable sensorimotor circuit extracted from the <code>male-cns:v1.0</code> <i>Drosophila</i> connectome</i></p>
 
-## What is in this folder
+<p align="center">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
+  <img alt="Dataset: CC-BY" src="https://img.shields.io/badge/dataset-CC--BY-lightgrey.svg">
+  <img alt="Status" src="https://img.shields.io/badge/status-research%20prototype-orange.svg">
+  <img alt="No build step" src="https://img.shields.io/badge/build-none%20required-brightgreen.svg">
+</p>
 
-| Folder | Contents |
-|---|---|
-| `docs/index.html` | The documentation site (one file, works offline, covers both versions) |
-| `game/fly_dodge.html` | The 2D game (one file, no dependencies) |
-| `game/fly_dodge_3d.html` | The 3D game (one file; the fly model and its textures are embedded, 459 KB) |
-| `scripts/` | Download, inspect and export scripts that turn ~1.2 GB of public tables into `flybrain_circuit.json` |
-| `tests/` | Headless tests for the 2D game, a made-up stand-in circuit, a synthetic-table generator |
-| `tests/3d/` | The same, for the 3D game: simulation tests and a headless page test with three.js's API stubbed |
-| `examples/` | Real output of the scripts on the real dataset |
+---
 
-## Quick start
+## Abstract
 
-Just try a game: open `game/fly_dodge.html` (2D) or `game/fly_dodge_3d.html` (3D) in a browser, choose
-`tests/STANDIN_not_real_circuit.json` (made-up data, for trying the controls only), then click in the arena to drop
-obstacles (hold to make them bigger). In the 3D game, a Camera card lets you switch between a third-person chase view and
-a free camera (arrow keys to move, click-and-drag to look around).
+Connectomics datasets now provide synapse-resolution wiring diagrams for entire insect nervous systems, but turning that wiring into a *running* sensorimotor controller — rather than a static graph — requires a series of modelling choices that are rarely made explicit. This project extracts a small, real escape circuit from the male *Drosophila melanogaster* central nervous system connectome (four looming-sensitive visual projection neuron types, their strongest interneuron relays, and the descending neurons they drive) and wires it into two interactive simulations: a 2D game and a free-flight 3D environment, in which a simulated fly dodges falling obstacles using only the extracted circuit's real, synapse-weighted output. Every quantity that comes directly from the data — cell counts, synapse weights, predicted neurotransmitter identity — is kept separate, in code and in this documentation, from quantities that are necessary modelling assumptions (e.g. the geometric rule mapping neural activity to a steering direction, for which the connectome itself provides no ground truth). The result is a working demonstration of the connectome-extraction pipeline, an honest audit of where biological data ends and engineering assumption begins, and a sandbox for testing whether the extracted wiring behaves differently from a randomized control of itself.
 
-With the real data (Arch Linux commands; see the docs for details):
+## Table of contents
+
+1. [Motivation](#1-motivation)
+2. [Data](#2-data)
+3. [Method: circuit extraction](#3-method-circuit-extraction)
+4. [Model: sensorimotor circuit](#4-model-sensorimotor-circuit)
+5. [Implementation](#5-implementation)
+6. [Results](#6-results)
+7. [Limitations and assumptions](#7-limitations-and-assumptions)
+8. [Future work](#8-future-work)
+9. [Repository structure](#9-repository-structure)
+10. [Getting started](#10-getting-started)
+11. [Citation](#11-citation)
+12. [License and acknowledgments](#12-license-and-acknowledgments)
+13. [References](#13-references)
+
+## 1. Motivation
+
+Edge-deployed autonomous systems (small drones in particular) face a hard constraint: obstacle avoidance has to run on very limited compute and power budgets. Insect visual systems solve an equivalent problem with a few hundred neurons. This project is a first, deliberately small step toward asking whether a *real*, data-derived wiring diagram — rather than a hand-designed or end-to-end-trained network of similar size — produces different, and specifically more robust, avoidance behaviour. It does **not** claim to have answered that question; see [§7](#7-limitations-and-assumptions) and [§8](#8-future-work) for exactly what is and isn't established here.
+
+## 2. Data
+
+[MaleCNS](https://male-cns.janelia.org/) (`male-cns:v1.0`), an electron-microscopy reconstruction of the central nervous system of a male *D. melanogaster*, released by FlyEM (HHMI Janelia), the University of Cambridge, the MRC Laboratory of Molecular Biology, and Google Research, under CC-BY. The release provides 211,577 annotated neurons and a connectivity table of 151,856,684 directed neuron-to-neuron synapse counts. Only three of the seven released tables are used (≈1.2 GB of the ≈24 GB release): body annotations (cell type, soma side, class), predicted neurotransmitter identity per neuron, and the synapse-weight table.
+
+| Cell population | Role here | Neurons |
+|---|---:|---:|
+| LPLC2, LC4, LC6, LPLC1 | Looming-sensitive visual projection neurons — the model's sensory input | 569 |
+| Descending neurons (all types) | Candidate motor output | 1,314 (481 types) |
+
+## 3. Method: circuit extraction
+
+A single script (`scripts/03_export_circuit.py`) reduces the full connectivity table to a small, game-sized circuit:
+
+1. Group neurons by **cell type × body side** (e.g. `LPLC2_L`), rather than treating each neuron individually or each type as side-agnostic.
+2. Scan the 152M-row weight table once, in 10M-row chunks, retaining only edges that leave a sensor node or arrive at a descending-neuron node — bounding memory use regardless of table size.
+3. Identify two path types: **direct** (sensor → descending neuron) and **two-step** (sensor → interneuron → descending neuron).
+4. Rank candidate interneuron nodes by `score = √(synapses received from sensors × synapses sent to descending neurons)`, keep the top 40.
+5. Rank descending-neuron nodes by total incoming drive (direct + two-step through the retained interneurons), keep the top 40.
+6. Assign each node a sign (+1 / −1 / 0) from its neurons' majority predicted neurotransmitter (acetylcholine → excitatory, GABA/glutamate → inhibitory).
+7. Emit `flybrain_circuit.json`: 88 nodes, 482 edges, each edge carrying its real, aggregated synapse weight.
+
+Full walkthrough, including a worked numerical example of the ranking step: [`docs/index.html`](docs/index.html#export).
+
+## 4. Model: sensorimotor circuit
+
+Each node is a single leaky, rectified-saturating rate unit (not a spiking or compartmental model):
+
+```
+τ · da/dt = −a + f(x),      f(x) = x / (1 + x)  for x > 0, else 0
+x_j = gain · (Σ_i sign(i) · w_ij · a_i) / scale(layer) + noise
+```
+
+where `w_ij` is the real, per-post-neuron-normalized synapse weight from the connectome. Sensor-node activity is driven by a looming signal computed from each falling obstacle's angular expansion rate and time-to-collision (an engineering choice, not a fitted visual model). Descending-neuron output is summed by body side (`S_L`, `S_R`) and decoded into a steering command. **The decoding rule is the one part of the pipeline with no connectome support**: it is a modelling necessity, stated as such throughout the documentation and in-game notes, not a finding.
+
+## 5. Implementation
+
+Two self-contained, dependency-free (beyond three.js for 3D) HTML demos run the same extracted circuit:
+
+| | 2D (`game/fly_dodge.html`) | 3D (`game/fly_dodge_3d.html`) |
+|---|---|---|
+| Fly | Hovers, sidesteps on 2 axes | Free-flight, steers on 3 axes (yaw from data, pitch assumed) |
+| Obstacles | Fall straight down | Fall from random points, drift, bounce off walls |
+| Camera | Fixed | Third-person chase, or a free camera (arrow keys + mouse-look) |
+| Visual | Abstract dot | A digitized fly model, not derived from the connectome (see [§12](#12-license-and-acknowledgments)) |
+
+Both load `flybrain_circuit.json` client-side; no server, build step, or API key is required.
+
+## 6. Results
+
+All reported hit/dodge statistics use a **stand-in circuit** built from the real export's reported interneuron and descending-neuron totals, not the full real `flybrain_circuit.json` — see [§7](#7-limitations-and-assumptions) for why, and run the real file yourself to get the result that actually matters.
+
+| Condition | 2D hit rate (single-drop sweep) | 3D hit rate (rain, 6-seed average) |
+|---|---:|---:|
+| Intact wiring | 3% | 19% |
+| Rewired (same weights, randomized targets) | 12% | 14%* |
+| Looming sensors silenced | 68% | — |
+| Brain disconnected | 71% | 100% |
+
+<sub>*On the stand-in circuit's built-in redundancy; see the caveat in `docs/index.html#v3d-testing`. The brain-disconnected comparison (100% hit rate with no evasive circuit at all, vs. ≤20% with one, in any wiring) is the one result load-bearing enough to trust from this stand-in test.</sub>
+
+A full account of every test performed, including two bugs the tests themselves caught before anything was published, is in [`docs/index.html`](docs/index.html#testing).
+
+## 7. Limitations and assumptions
+
+This repository draws a hard, explicit line between what the connectome data supports and what is engineering judgment layered on top. The complete, line-by-line audit — every quantity in the project tagged *from the data*, *literature-supported*, or *assumption* — is in [`docs/index.html`](docs/index.html#assumptions). In summary:
+
+- **Supported by data:** cell populations and counts, synapse-weighted connectivity, predicted excitatory/inhibitory identity, the existence and side-distribution of direct vs. two-step wiring to descending neurons.
+- **Not supported by data, stated as assumption throughout:** the rule mapping descending-neuron activity to a movement direction; the looming-detection formula itself; vertical (climb/dive) steering in the 3D version, for which the connectome provides no elevation information at all; the choice of free flight over hovering.
+- **Not yet validated:** the real, full `flybrain_circuit.json` has not been run through either game by the author of this codebase — every quantitative result above comes from a deliberately-labelled stand-in circuit built only to exercise the code paths.
+
+## 8. Future work
+
+- Run the real circuit (not the stand-in) through both games and report the comparison.
+- Extend the sensor set (e.g. LC16) and compare the resulting circuit.
+- Use per-synapse position data (`syn-points`, not currently used) to test whether retinotopic organization in the optic lobe can supply a data-derived elevation/vertical-steering signal, removing the one steering axis that is currently pure assumption.
+- Benchmark the extracted circuit, a learned-weight version of the same sparse structure, and a conventional small network of equal size on a shared avoidance task, to test whether the connectome's specific wiring confers any measurable advantage over its own randomized controls.
+
+## 9. Repository structure
+
+```
+flybrain-dodge/
+├── docs/index.html          full technical documentation (offline, single file)
+├── game/
+│   ├── fly_dodge.html       2D demo
+│   └── fly_dodge_3d.html    3D demo (fly model + textures embedded)
+├── scripts/                 data download, inspection, and circuit-extraction pipeline
+├── tests/                   automated checks for the simulation and both demos
+└── examples/                real console output from running the pipeline on the dataset
+```
+
+## 10. Getting started
 
 ```bash
+# Play immediately with a non-biological stand-in circuit (bundled, for exercising the UI only):
+open game/fly_dodge.html        # or fly_dodge_3d.html
+# then load tests/STANDIN_not_real_circuit.json when prompted
+
+# Reproduce the real circuit from the dataset:
 bash scripts/00_setup_venv.sh && source ~/flybrain-venv/bin/activate
-mkdir -p ~/malecns && cd ~/malecns
-bash /path/to/flybrain-dodge/scripts/01_download.sh                      # ~1.1 GB
-python /path/to/flybrain-dodge/scripts/02_inspect_schema.py | tee inspect_output.txt
-python /path/to/flybrain-dodge/scripts/03_export_circuit.py | tee report.txt   # needs ~4-5 GB RAM
-cp flybrain_circuit.json /path/to/flybrain-dodge/game/
-cd /path/to/flybrain-dodge/game && python -m http.server 8000
-# open http://localhost:8000/fly_dodge.html or http://localhost:8000/fly_dodge_3d.html
+bash scripts/01_download.sh                              # ~1.1 GB
+python scripts/03_export_circuit.py | tee report.txt      # writes flybrain_circuit.json
 ```
 
-(Or open either game from disk and choose `flybrain_circuit.json` with the file button.)
+Full instructions, including memory requirements and troubleshooting: [`docs/index.html`](docs/index.html#quickstart).
 
-## Running the tests
+## 11. Citation
 
-```bash
-cd tests && npm install          # installs jsdom, needed for ui_smoke.js and 3d/smoke3d.js
-node sweep.js && node tune.js && node rain.js && node ui_smoke.js      # 2D
-cd 3d && node test3d.js && node test3d_rain.js && node smoke3d.js      # 3D
-```
+If this repository is useful in your own work, please cite it (see [`CITATION.cff`](CITATION.cff)) and the underlying dataset:
 
-## Read this before drawing conclusions
+> MaleCNS connectome, release `male-cns:v1.0`. FlyEM (HHMI Janelia), University of Cambridge, MRC Laboratory of Molecular Biology, and Google Research. https://male-cns.janelia.org/
 
-- The synapse counts are real. The step from descending-neuron activity to fly movement is a modelling choice, not a
-  finding — and in the 3D game, climb/dive has no connectome basis at all (see the docs).
-- `flybrain_circuit.json` is not included; script 03 creates it from the real tables.
-- The test results in the docs come from a made-up stand-in circuit. Running the game on your real file is the real test.
-- The 3D fly model is a 1999 digitized model the user supplied, unrelated to the connectome data; see the docs for what's
-  known about its provenance.
+## 12. License and acknowledgments
 
-Dataset: MaleCNS connectome, CC-BY, https://male-cns.janelia.org/. Credit it if you share results.
+Code in this repository is released under the [MIT License](LICENSE). The connectome data is CC-BY (credit the dataset, as above, if you share results derived from it). The 3D demo's fly model is a third-party digitized asset (Viewpoint Datalabs, 1999) with provenance noted but not independently cleared for reuse in `docs/index.html#sources` — it is not covered by this repository's MIT license and is included as a pre-built, embedded mesh rather than redistributed as a separate asset.
+
+## 13. References
+
+- Ache JM, Polsky J, Alghailani S, Parekh R, Breads P, Peek MY, Bock DD, von Reyn CR, Card GM (2019). Neural basis for looming size and velocity encoding in the *Drosophila* giant fiber escape pathway. *Current Biology* 29(6):1073–1081. doi:10.1016/j.cub.2019.01.079
+- Jang H, Goodman DP, Ausborn J, von Reyn CR (2023). Azimuthal invariance to looming stimuli in the *Drosophila* giant fiber escape circuit. *Journal of Experimental Biology* 226(8):jeb244790. doi:10.1242/jeb.244790
+- Klapoetke NC, Nern A, Peek MY, Rogers EM, Breads P, Rubin GM, Reiser MB, Card GM (2017). Ultra-selective looming detection from radial motion opponency. *Nature* 551. 
+- Spatial readout of visual looming in the central brain of *Drosophila*. *eLife*. doi:10.7554/eLife.57685
