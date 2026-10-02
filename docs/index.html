@@ -1,0 +1,5145 @@
+MenuFly Dodgedocumentation · v1.0 · 21 Sep 2026Theme
+
+Start here
+
+What this isHow it works at a glanceQuick start
+
+The data
+
+The male CNS datasetWhat to downloadSetting up PythonReading the tablesChoosing the cells
+
+The circuit
+
+Building the circuit fileReading the export reportThe circuit JSON
+
+The model
+
+From obstacle to eye signalThe rate modelFrom neurons to movementThe arena and the fly
+
+The game
+
+Using the gameExperiments to try
+
+Checking our work
+
+How it was testedResultsMistakes found along the way
+
+The 3D version
+
+What's different in 3DFree flight and 3D sensingThe 3D fly modelCamera and roomTesting the 3D version
+
+Reference
+
+Real, assumed, unverifiedTroubleshootingFile referenceParameter referenceGlossaryWhere to go nextProject logSources and credits
+
+Fly Dodge
+
+A small browser game where a simulated fly dodges falling obstacles, steered by a network wired from real synapse counts in the male fruit fly central nervous system connectome.
+
+The project asks one question: what happens when you drive a virtual fly with the wiring of a real fly's brain and nervous system instead of hand-written dodge rules? To get there it needed four things, and each one is documented here:
+
+
+
+
+
+
+
+Part
+
+
+
+What it does
+
+
+
+Where
+
+
+
+
+
+Data tools
+
+
+
+Turn about 1.2 GB of public connectome tables into a small circuit file (flybrain_circuit.json)
+
+
+
+scripts/
+
+
+
+
+
+The game
+
+
+
+One HTML file with no dependencies. Click to drop obstacles; watch the circuit decide how the fly moves
+
+
+
+game/fly_dodge.html
+
+
+
+
+
+Tests
+
+
+
+Headless checks of the simulation and the page, plus a stand-in circuit and a synthetic-data generator
+
+
+
+tests/
+
+
+
+
+
+Real outputs
+
+
+
+What the scripts printed on the real dataset, saved for reference
+
+
+
+examples/
+
+What this is not
+
+It is not a validated model of how a fly escapes a threat. The synapse counts are real. The step from "these descending neurons are active" to "the fly moves left" is my own modelling choice, and the section Real, assumed, unverified lists every such choice. Treat the game as an exploration tool, not as a biological result.
+
+Provenance tags
+
+Throughout these docs, three small tags show where a statement comes from:
+
+from the data read from the dataset files or the real outputs pasted during the project. assumption a choice made for the model, not established by the data. literature a claim from a published paper, cited in Sources.
+
+A note on voice: "I" in these docs is Claude, who wrote the code and this documentation with you. "The author" is you, the project owner, whose laptop and terminal produced the real outputs quoted here.
+
+Status: what has and has not been checked
+
+Checked
+
+
+
+
+
+The export script ran on the real male CNS v1.0 tables; its output is in examples/real_export_report.txt.
+
+
+
+The packaged scripts also run end to end on synthetic tables with the same column names.
+
+
+
+Simulation tests and 17 page checks pass headlessly, on two different circuits.
+
+Not checked
+
+
+
+
+
+The game has not been loaded with the real flybrain_circuit.json by me; I never had that file.
+
+
+
+I have not seen the page in a real browser, only in a headless test browser with a mocked canvas.
+
+
+
+Whether the real circuit dodges as well as the stand-in one is unknown until you run it.
+
+How it works at a glance
+
+Public tables3 files, about 1.2 GB(of 24 GB offered)Export script03_export_circuit.pya few minutesCircuit fileflybrain_circuit.json88 nodes, 482 edgesGamefly_dodge.htmlrate model + physicsYouclick to droponce, on your laptoponce, on your laptopruns in the browser, offline
+
+Figure 1. The whole pipeline. The heavy work happens once; the game only ever sees the small JSON file. The 88 nodes and 482 edges are from the author's real run of the export script.
+
+
+
+
+
+Choose the eyes. Four looming-detector cell types (LPLC2, LC4, LC6, LPLC1), 569 neurons in total, are the fly's only sensors.
+
+
+
+Find what they connect to. The export script follows their synapses to descending neurons, both directly and through one interneuron, and groups neurons by cell type and body side.
+
+
+
+Write the circuit. 8 sensor nodes, 40 interneuron nodes, 40 descending-neuron nodes and 482 weighted connections go into one JSON file.
+
+
+
+Run it. Each falling obstacle produces a looming signal for the left or right eye. The network turns it into activity in left-side and right-side descending neurons. A simple rule turns that activity into movement.
+
+
+
+
+
+
+
+Fact from the data
+
+
+
+Value
+
+
+
+
+
+Neurons in the annotation table
+
+
+
+211,577
+
+
+
+
+
+Segment-to-segment connections in the weights table
+
+
+
+151,856,684
+
+
+
+
+
+Descending neurons (types)
+
+
+
+1,314 (481)
+
+
+
+
+
+Looming-detector neurons used as sensors
+
+
+
+569
+
+
+
+
+
+Nodes / edges in the circuit file
+
+
+
+88 / 482
+
+Quick start
+
+Path A: just see the game
+
+
+
+
+
+Open game/fly_dodge.html in Chrome, Firefox or Edge. It needs no internet.
+
+
+
+Click Choose file and pick tests/STANDIN_not_real_circuit.json, or your own flybrain_circuit.json if you have already made one.
+
+
+
+Click in the arena to drop obstacles. Hold the button before releasing to make a bigger one.
+
+The stand-in file is not real data
+
+It is a made-up circuit that only borrows some numbers from the real report, so the game has something to run on. Use it to try the controls, never to draw conclusions about flies.
+
+Path B: the full pipeline on the real dataset
+
+
+
+
+
+Make a Python environment (needed on Arch Linux, see Setting up Python): 
+
+bash scripts/00_setup_venv.sh
+source ~/flybrain-venv/bin/activate
+
+
+
+Download the three tables (about 1.1 GB) into a working folder: 
+
+mkdir -p ~/malecns && cd ~/malecns
+bash /path/to/flybrain-dodge/scripts/01_download.sh
+
+
+
+Inspect them (optional but recommended, prints schemas and cell-type counts): 
+
+python /path/to/flybrain-dodge/scripts/02_inspect_schema.py | tee inspect_output.txt
+
+
+
+Build the circuit (a few minutes; needs roughly 4 to 5 GB of free RAM): 
+
+python /path/to/flybrain-dodge/scripts/03_export_circuit.py | tee report.txt
+
+ This writes flybrain_circuit.json into the current folder.
+
+
+
+Play. Either open the game and choose the JSON file, or serve both from one folder so it loads automatically: 
+
+cp flybrain_circuit.json /path/to/flybrain-dodge/game/
+cd /path/to/flybrain-dodge/game && python -m http.server 8000
+# then open http://localhost:8000/fly_dodge.html
+
+No 1 GB download?
+
+To try the scripts without the real data, run python tests/make_synthetic_feather.py demo_data, then cd demo_data and run scripts 02 and 03 from there. The content is random and not biological, but the file formats and column names match.
+
+The male CNS dataset
+
+The data comes from the MaleCNS connectome, an electron-microscopy reconstruction of the central nervous system (brain and ventral nerve cord) of a male Drosophila melanogaster. Every neuron was traced and every synapse located, so the result is a wiring diagram: which neuron connects to which, and through how many synapses. This project uses release male-cns:v1.0.
+
+
+
+
+
+
+
+Item
+
+
+
+Detail from the dataset page
+
+
+
+
+
+Home
+
+
+
+male-cns.janelia.org/download
+
+
+
+
+
+Interactive access
+
+
+
+neuPrint at neuprint.janelia.org (free account needed)
+
+
+
+
+
+Programmatic access
+
+
+
+neuprint-python (Python), neuprintr (R), navis (morphology)
+
+
+
+
+
+Bulk files
+
+
+
+gs://flyem-male-cns/v1.0/connectome-data/flat-connectome/, also over plain HTTPS at storage.googleapis.com
+
+
+
+
+
+Table format
+
+
+
+Apache Arrow Feather, readable with pyarrow or pandas
+
+
+
+
+
+License
+
+
+
+CC-BY (the page links to CC BY 4.0). If you share results, credit the dataset; see the site for the citation to use.
+
+
+
+
+
+Made by
+
+
+
+FlyEM (HHMI Janelia), University of Cambridge Dept. of Zoology, MRC Laboratory of Molecular Biology, Google Research
+
+What is offered, and how big it is
+
+
+
+
+
+
+
+File
+
+
+
+What it holds
+
+
+
+Size
+
+
+
+
+
+body-annotations-…feather
+
+
+
+Curated neuron annotations: class, type, side and more
+
+
+
+13 MB
+
+
+
+
+
+body-neurotransmitters-…feather
+
+
+
+Aggregate neurotransmitter predictions per neuron
+
+
+
+42 MB
+
+
+
+
+
+body-stats-…feather
+
+
+
+Summary synapse counts per segment
+
+
+
+780 MB
+
+
+
+
+
+connectome-weights-…feather
+
+
+
+Segment-to-segment connection strengths: the full connection graph
+
+
+
+1.1 GB
+
+
+
+
+
+syn-points-…feather
+
+
+
+Location of every pre- and post-synapse, with body ID and region
+
+
+
+12.7 GB
+
+
+
+
+
+syn-partners-…feather
+
+
+
+Synaptic partner pairs with locations and confidences
+
+
+
+6.8 GB
+
+
+
+
+
+tbar-neurotransmitters-…feather
+
+
+
+Neurotransmitter probabilities for each pre-synapse
+
+
+
+2.7 GB
+
+
+
+
+
+Sum of the seven tables
+
+
+
+about 24.1 GB
+
+
+
+
+
+Beyond the tables, the page offers skeletons in several formats and coordinate spaces, a Neo4j database with its input CSVs, and the image and segmentation volumes. Those are not sized on the page.
+
+How big is the picture data?
+
+The page shows the EM volume as (94088, 78317, 134576, 1) voxels at 8 nm, one byte per voxel. Multiplying that out gives about 1015 bytes, roughly one petabyte for the uncompressed bounding box. This is my own arithmetic; the real stored size will differ because of compression and empty space. It is the reason this project never touches the volumes.
+
+The file names contain minconf-0.5. I read this as a minimum synapse-confidence cut-off of 0.5, but the page does not spell it out, so check the dataset documentation before relying on that reading.
+
+What to download
+
+The circuit needs only three of the seven tables, about 1.2 GB (13 + 42 + 1,100 MB = 1,155 MB).
+
+
+
+
+
+
+
+File
+
+
+
+Download?
+
+
+
+Why
+
+
+
+
+
+body-annotations
+
+
+
+Yes
+
+
+
+Maps each neuron ID to its cell type, body side and class
+
+
+
+
+
+connectome-weights
+
+
+
+Yes
+
+
+
+The synapse counts between neurons. Aggregated into type-to-type weights
+
+
+
+
+
+body-neurotransmitters
+
+
+
+Yes
+
+
+
+Predicted transmitter per neuron, used to decide excitatory versus inhibitory
+
+
+
+
+
+body-stats
+
+
+
+No
+
+
+
+Only per-neuron summary counts; nothing the model uses
+
+
+
+
+
+syn-points, syn-partners, tbar-neurotransmitters
+
+
+
+No
+
+
+
+Individual synapses and their locations: 22 GB of detail beyond a type-level circuit. See Where to go next for the one use I considered
+
+
+
+
+
+Volumes, skeletons, Neo4j
+
+
+
+No
+
+
+
+Not needed for a circuit model
+
+On the author's laptop the three files came down without trouble: the transfers reported 13.81 MB, 41.27 MB and 0.97 GB, at roughly 4 MB per second, so the big file took about four minutes. curl reports 0.97 G for the weights file where the page says 1.1 GB; I did not investigate the small gap (rounding or binary versus decimal units are the likely explanations).
+
+Memory
+
+The game itself needs very little. The only memory-hungry step is the export script, which reads a 152-million-row table in chunks of 10 million rows and keeps only the rows it needs. Budget roughly 4 to 5 GB of free RAM for it (my estimate; on a 16 GB laptop with the desktop running this should fit). If it gets killed, see Troubleshooting.
+
+An alternative: query instead of download
+
+neuPrint's API returns connectivity for chosen cell types without any bulk download. It needs a free account and an API token. It is slower to iterate with than local files, but it uses almost no disk.
+
+pip install neuprint-python
+python -c "
+from neuprint import Client
+client = Client('https://neuprint.janelia.org', dataset='male-cns:v1.0', token='YOUR_TOKEN')
+"
+
+Setting up Python
+
+The author works on Arch Linux with Python 3.14.7. The first attempt to install the two libraries failed with this message:
+
+error: externally-managed-environment
+× This environment is externally managed
+╰─> To install Python packages system-wide, try 'pacman -S python-xyz' ...
+
+This is PEP 668: the distribution refuses system-wide pip install so that pip cannot break system packages. The fix is a virtual environment, which is what scripts/00_setup_venv.sh creates:
+
+python -m venv ~/flybrain-venv
+source ~/flybrain-venv/bin/activate # fish shell: source ~/flybrain-venv/bin/activate.fish
+pip install pandas pyarrow
+
+After that both packages installed, and the prompt showed (flybrain-venv). You need to run the source line in every new terminal before using the scripts. If pip ever cannot find a pyarrow build for a very new Python, the fallback is sudo pacman -S python-pandas python-pyarrow and then running the scripts with the system python.
+
+Avoid the override
+
+pip offers --break-system-packages. It works, but it is exactly the risk PEP 668 exists to prevent.
+
+Reading the tables
+
+Running 02_inspect_schema.py prints each table's columns and first rows. All values below are the real output; wide tables are shown with selected columns. The complete text is in examples/real_inspect_output.txt.
+
+Annotations from the data
+
+211,577 rows, one per neuron, with 36 columns. The ones this project uses are bodyId, type, superclass, somaSide, subclass and exitNerve.
+
+
+
+
+
+
+
+bodyId
+
+
+
+type
+
+
+
+instance
+
+
+
+somaSide
+
+
+
+superclass
+
+
+
+hemibrainType
+
+
+
+subclass
+
+
+
+status
+
+
+
+
+
+10001
+
+
+
+DNp01
+
+
+
+DNp01(GF)_R
+
+
+
+R
+
+
+
+descending_neuron
+
+
+
+Giant Fiber
+
+
+
+lt
+
+
+
+Traced
+
+
+
+
+
+10002
+
+
+
+OCG01d
+
+
+
+OCG01d_L
+
+
+
+L
+
+
+
+visual_projection
+
+
+
+OCG01
+
+
+
+–
+
+
+
+Traced
+
+
+
+
+
+10003
+
+
+
+VCH
+
+
+
+VCH_R
+
+
+
+R
+
+
+
+visual_centrifugal
+
+
+
+VCH
+
+
+
+–
+
+
+
+Traced
+
+The first row is worth a look: the dataset itself labels body 10001 as the right-hand giant fiber (DNp01(GF)_R, hemibrain name "Giant Fiber", with a synonym note pointing to Kennedy and Broadie 2018). That is how the project knows which descending neuron is the giant fiber, without relying on memory.
+
+Neurotransmitters from the data
+
+1,835,518 rows. That is far more than the annotation table because it also covers segments that were never annotated as neurons; the export script joins on bodyId and simply ignores the rest. The script uses consensus_nt.
+
+
+
+
+
+
+
+body
+
+
+
+cell_type
+
+
+
+total_nt_predictions
+
+
+
+predicted_nt_confidence
+
+
+
+predicted_nt
+
+
+
+ground_truth
+
+
+
+consensus_nt
+
+
+
+
+
+10001
+
+
+
+DNp01
+
+
+
+1015
+
+
+
+0.500
+
+
+
+acetylcholine
+
+
+
+–
+
+
+
+acetylcholine
+
+
+
+
+
+10002
+
+
+
+OCG01d
+
+
+
+1443
+
+
+
+0.956
+
+
+
+acetylcholine
+
+
+
+–
+
+
+
+acetylcholine
+
+
+
+
+
+10003
+
+
+
+VCH
+
+
+
+4425
+
+
+
+0.879
+
+
+
+gaba
+
+
+
+gaba
+
+
+
+gaba
+
+Notice the confidence column. The giant fiber's per-neuron prediction is only 0.50, while the other two are 0.88 to 0.96, and VCH also has a ground_truth value. Predicted transmitters are predictions, and the model inherits their uncertainty.
+
+Weights from the data
+
+151,856,684 rows and just three columns: body_pre, body_post and weight (a synapse count).
+
+
+
+
+
+
+
+body_pre
+
+
+
+body_post
+
+
+
+weight
+
+
+
+
+
+10352
+
+
+
+10351
+
+
+
+2591
+
+
+
+
+
+13612
+
+
+
+16076
+
+
+
+2443
+
+
+
+
+
+10663
+
+
+
+10051
+
+
+
+2248
+
+Read the first row as "neuron 10352 makes 2,591 synapses onto neuron 10351". The three rows shown happen to run from strongest downwards, but I have not checked whether the whole table is ordered that way.
+
+Gotchas found while exploring
+
+
+
+
+
+Many neurons have no superclass. 44,877 of 211,577 have a blank superclass, and some descending neurons have a blank type (4 of them in the type list). The export script labels blank types unnamed and never lets them into the circuit.
+
+
+
+Some types are compound. One descending-neuron type appears as DNp51,DNpe019 (4 neurons). It is treated as its own type.
+
+
+
+Side is a column, not a naming convention. The script builds node names as type_side (for example LPLC2_L) from somaSide, and uses ? when the side is blank.
+
+
+
+Newer pandas hides text columns from a dtype check. See Mistakes found along the way.
+
+Choosing the cells
+
+The tables classify every neuron into a superclass. These counts are real and add up to exactly 211,577:
+
+
+
+
+
+
+
+superclass
+
+
+
+neurons
+
+
+
+role in this project
+
+
+
+
+
+ol_intrinsic
+
+
+
+89,403
+
+
+
+Not used as a filter
+
+
+
+
+
+(blank)
+
+
+
+44,877
+
+
+
+Not used as a filter
+
+
+
+
+
+cb_intrinsic
+
+
+
+32,164
+
+
+
+Not used as a filter
+
+
+
+
+
+vnc_intrinsic
+
+
+
+13,161
+
+
+
+Not used as a filter
+
+
+
+
+
+visual_projection
+
+
+
+9,201
+
+
+
+Source of the sensor neurons
+
+
+
+
+
+descending_neuron
+
+
+
+1,314
+
+
+
+The circuit's outputs
+
+
+
+
+
+…and 22 smaller superclasses (motor, sensory, ascending, endocrine, and so on), listed in full in the examples file. Interneurons in the circuit are chosen by their connections, whatever their superclass.
+
+The sensors: four looming detectors
+
+Looming is the visual signature of something growing on the retina, which usually means it is getting closer. The visual projection neurons carry visual features out of the optic lobe. The four types chosen are all in that group, and the counts below are real:
+
+
+
+
+
+
+
+Type
+
+
+
+Left
+
+
+
+Right
+
+
+
+Total
+
+
+
+Basis for including it
+
+
+
+
+
+LPLC2
+
+
+
+94
+
+
+
+91
+
+
+
+185
+
+
+
+literature specialised looming detector; supplies the giant fiber's size signal (Ache et al. 2019)
+
+
+
+
+
+LC4
+
+
+
+71
+
+
+
+55
+
+
+
+126
+
+
+
+literature supplies the giant fiber's velocity signal (Ache et al. 2019)
+
+
+
+
+
+LC6
+
+
+
+59
+
+
+
+65
+
+
+
+124
+
+
+
+literature looming-responsive; activating it evokes takeoff. Reported not to be a direct giant-fiber input
+
+
+
+
+
+LPLC1
+
+
+
+68
+
+
+
+66
+
+
+
+134
+
+
+
+assumption my inclusion as a looming-related candidate; I have no source for its role
+
+The counts sum to 569 sensor neurons. The left and right numbers match the annotations' somaSide column; the export script's first lines print exactly these figures.
+
+Correction to an earlier statement
+
+Earlier in the project I said I was confident that LPLC2, LC4 and LC6 all drive the giant fiber escape. For LC6 that was too strong. A published study (see Sources) describes LC6 as a looming-responsive cell type whose activation elicits takeoff, but not a direct input to the giant fiber pathway described by Ache et al. 2019. Whether the male CNS data shows direct LC6 synapses onto DNp01 is a question the data can answer: run scripts/04_input_contributions.py on your circuit file and look at the LC6 column.
+
+Other looming-related types were available but left out. LC16 has 182 neurons and is described alongside LC4, LPLC2 and LC6 as looming-responsive with avoidance behaviour. Adding it is one edit to INPUT_TYPES in the export script. Another type, LPLC4 (97 neurons), also sits among the visual projection neurons and was not used as a sensor; the real report shows it as the highest-ranked interneuron, so it is in the circuit, just not at the input.
+
+The outputs: descending neurons
+
+Descending neurons are the cells whose axons run from the brain down the nerve cord to control the body. The dataset has 1,314 of them in 481 types; the largest types are small (for example DNg08 with 23 neurons and DNpe008 with 19). The named ones this project cares about come in left/right pairs of one neuron each: DNp01 (the giant fiber), DNp02 to DNp07, DNp10, DNp11, DNa02 and DNb01 all have exactly 2 neurons. The export script does not pick descending neurons by name. It picks the 40 with the most synaptic drive from the chosen sensors.
+
+Building the circuit file
+
+scripts/03_export_circuit.py reduces 152 million neuron-to-neuron connections to a circuit of 88 nodes. This section walks through what it does, in order. The settings at the top of the script are the only things you normally edit.
+
+INPUT_TYPES = ['LPLC2', 'LC4', 'LC6', 'LPLC1'] # the sensors
+N_INTER = 40 # interneuron nodes kept
+N_DN = 40 # descending-neuron nodes kept
+MIN_EDGE = 10 # drop type-to-type edges with fewer total synapses
+SIGN = {'acetylcholine': 1, 'gaba': -1, 'glutamate': -1} # anything else -> 0
+
+Nodes are cell type plus side
+
+A single neuron is too fine-grained for a small game, and a whole cell type ignores left and right. The script's compromise is a node = type + soma side, for example LPLC2_L (94 neurons) or DNp01_R (1 neuron). The edge between two nodes is the sum of synapses over every neuron pair. Node size is kept (n) because it matters when weights are normalised later.
+
+
+
+
+
+Load and label. Read annotations, drop duplicate IDs, fill blanks (unnamed type, ? side), join consensus_nt from the neurotransmitter table, and build the type_side name for every neuron.
+
+
+
+Pick the endpoints. Sensors are all neurons whose type is in INPUT_TYPES (569 neurons). Outputs are all neurons with superclass == "descending_neuron" (1,314).
+
+
+
+Scan the weights once. Read the 152-million-row table in 10-million-row chunks. Keep rows that leave a sensor, and rows that arrive at a descending neuron. On the real data this left 505,699 sensor-outgoing edges and 818,956 descending-neuron-incoming edges. Everything else is discarded as it is read, which is why memory stays bounded.
+
+
+
+Find the paths. Direct: a sensor synapses straight onto a descending neuron. Two-step: a sensor synapses onto some neuron X, and X synapses onto a descending neuron. X can be any neuron that is not itself a sensor or a descending neuron.
+
+
+
+Keep the 40 most important interneuron nodes. Each node X is scored by the geometric mean of what it receives from sensors and what it sends to descending neurons: score = sqrt(in × out). Unnamed nodes are skipped.
+
+
+
+Keep the 40 most driven descending-neuron nodes. A node's drive is its direct synapses from sensors plus its synapses from the kept interneurons. Unnamed nodes are skipped.
+
+
+
+Write the outputs. Nodes and edges go to flybrain_circuit.json. Edges with fewer than MIN_EDGE = 10 synapses are dropped. A report is printed to the terminal (see the next section).
+
+Worked example: why LPLC4 ranks first real numbers
+
+Step 5 with the real totals from the report. "in" is synapses received from the sensors, "out" is synapses sent to descending neurons, and the transmitter is the node's majority consensus_nt.
+
+
+
+
+
+
+
+Interneuron node
+
+
+
+in
+
+
+
+out
+
+
+
+score = √(in × out)
+
+
+
+transmitter
+
+
+
+sign
+
+
+
+
+
+LPLC4_R
+
+
+
+2,194
+
+
+
+13,285
+
+
+
+5,399
+
+
+
+acetylcholine
+
+
+
++1
+
+
+
+
+
+LPLC4_L
+
+
+
+1,525
+
+
+
+14,103
+
+
+
+4,638
+
+
+
+acetylcholine
+
+
+
++1
+
+
+
+
+
+PVLP122_R
+
+
+
+2,999
+
+
+
+3,465
+
+
+
+3,224
+
+
+
+acetylcholine
+
+
+
++1
+
+
+
+
+
+PVLP122_L
+
+
+
+2,685
+
+
+
+3,495
+
+
+
+3,063
+
+
+
+acetylcholine
+
+
+
++1
+
+
+
+
+
+PVLP151_R
+
+
+
+5,621
+
+
+
+1,505
+
+
+
+2,909
+
+
+
+acetylcholine
+
+
+
++1
+
+
+
+
+
+PVLP151_L
+
+
+
+5,390
+
+
+
+1,455
+
+
+
+2,800
+
+
+
+acetylcholine
+
+
+
++1
+
+
+
+
+
+LLPC1_R
+
+
+
+1,497
+
+
+
+3,932
+
+
+
+2,426
+
+
+
+acetylcholine
+
+
+
++1
+
+
+
+
+
+LT51_R
+
+
+
+783
+
+
+
+5,277
+
+
+
+2,033
+
+
+
+glutamate
+
+
+
+−1
+
+
+
+
+
+LT51_L
+
+
+
+606
+
+
+
+5,687
+
+
+
+1,856
+
+
+
+glutamate
+
+
+
+−1
+
+
+
+
+
+LLPC1_L
+
+
+
+899
+
+
+
+3,484
+
+
+
+1,770
+
+
+
+acetylcholine
+
+
+
++1
+
+
+
+
+
+LC31b_R
+
+
+
+2,722
+
+
+
+970
+
+
+
+1,625
+
+
+
+acetylcholine
+
+
+
++1
+
+
+
+
+
+PVLP010_L
+
+
+
+1,278
+
+
+
+1,974
+
+
+
+1,588
+
+
+
+glutamate
+
+
+
+−1
+
+
+
+
+
+PVLP011_R
+
+
+
+10,334
+
+
+
+238
+
+
+
+1,568
+
+
+
+gaba
+
+
+
+−1
+
+
+
+
+
+PS208_L
+
+
+
+855
+
+
+
+2,796
+
+
+
+1,546
+
+
+
+acetylcholine
+
+
+
++1
+
+
+
+
+
+LHAD1g1_R
+
+
+
+1,305
+
+
+
+1,792
+
+
+
+1,529
+
+
+
+gaba
+
+
+
+−1
+
+LPLC4_R wins even though PVLP151_R receives more from the sensors (5,621 versus 2,194), because the geometric mean rewards nodes that are strong on both sides of the relay. PVLP011_R receives the most of all (10,334) but sends almost nothing on (238), so it ranks 13th. The scores computed here descend in exactly the order the script printed, which confirms this is the rule the script applies. The score column is my arithmetic from the reported in/out columns.
+
+The sign rule assumption
+
+Each node takes the majority consensus_nt of its neurons. Acetylcholine counts as excitatory (+1), GABA and glutamate as inhibitory (−1), and any other or missing transmitter as 0, meaning the connection has no effect in the game. Glutamate is a simplification: in flies it can act either way depending on the receptor. Of the top 15 interneuron nodes above, 10 are cholinergic, 3 glutamatergic and 2 GABAergic.
+
+What the reduction leaves out
+
+
+
+
+
+Paths longer than two steps, and any interneuron-to-interneuron connection. Only sensor→descending and sensor→X→descending paths exist in the circuit.
+
+
+
+All but the top 40 interneuron nodes and top 40 descending-neuron nodes. The choice is by synaptic drive, not by what the neurons do.
+
+
+
+Edges under 10 synapses.
+
+
+
+Everything inside a node: individual neurons, their positions, and their timing.
+
+Runtime
+
+Reading the weights table dominates: a few minutes, with peak memory around 4 to 5 GB (estimate). The terminal prints a running "millions of rows scanned" counter to stderr while it works; on the author's run it ended at 152M.
+
+Reading the export report
+
+Besides the JSON, the script prints a report. Here is how to read the descending-neuron table, using the real output (full text in examples/real_export_report.txt).
+
+
+
+
+
+
+
+Column
+
+
+
+Meaning
+
+
+
+
+
+direct_L, direct_R
+
+
+
+Synapses this node receives directly from left-side and right-side sensors
+
+
+
+
+
+two_L_pct
+
+
+
+Of the drive arriving through the interneurons, the percentage that traces back to left-side sensors
+
+
+
+
+
+two_total
+
+
+
+Size of that two-step drive. It is a sum of (sensor→X synapses × X→descending synapses), so it is in squared-synapse units and is not comparable with the direct counts
+
+
+
+
+
+subclass, exit
+
+
+
+Annotation fields carried over. Codes seen: lt, ut, xn, xl. I have not verified what they stand for; exit was blank for every row
+
+
+
+
+
+
+
+Node
+
+
+
+direct_L
+
+
+
+direct_R
+
+
+
+two_L_pct
+
+
+
+subclass
+
+
+
+
+
+DNp01_L (giant fiber)
+
+
+
+6,425
+
+
+
+0
+
+
+
+63
+
+
+
+lt
+
+
+
+
+
+DNp01_R (giant fiber)
+
+
+
+0
+
+
+
+4,800
+
+
+
+34
+
+
+
+lt
+
+
+
+
+
+DNp04_L
+
+
+
+8,785
+
+
+
+0
+
+
+
+35
+
+
+
+lt
+
+
+
+
+
+DNp04_R
+
+
+
+0
+
+
+
+6,231
+
+
+
+59
+
+
+
+lt
+
+
+
+
+
+DNp03_L
+
+
+
+3,816
+
+
+
+0
+
+
+
+93
+
+
+
+ut
+
+
+
+
+
+DNp03_R
+
+
+
+0
+
+
+
+2,294
+
+
+
+1
+
+
+
+ut
+
+
+
+
+
+DNg97_L
+
+
+
+0
+
+
+
+0
+
+
+
+9
+
+
+
+xl
+
+
+
+
+
+DNg97_R
+
+
+
+0
+
+
+
+0
+
+
+
+88
+
+
+
+xl
+
+What the table shows counted from the real 40-row table
+
+
+
+
+
+Direct wiring is same-side. 32 of the 40 nodes receive direct input, and 31 of those receive it from one side only (left-side nodes from left sensors, right-side from right). The single exception is DNp70_R: 6 synapses from the left and 207 from the right.
+
+
+
+Two-step wiring mixes sides. For 28 of the 40 nodes, at least 70% of the interneuron-relayed drive comes from the same side. For 10 nodes it is between 30% and 70%, and for 2 nodes (both DNg97) it comes mostly from the opposite side.
+
+
+
+Some nodes get almost all their input from the opposite eye. DNp04_L has 8,785 direct synapses from left sensors and none from the right, yet only 35% of its two-step drive is left-derived. Its right-eye influence arrives through interneurons.
+
+
+
+The giant fiber is a moderate case. About 63% of DNp01_L's two-step drive is left-derived and about 66% of DNp01_R's is right-derived, so roughly a third comes from the opposite eye on both sides.
+
+
+
+8 nodes have no direct sensor input at all (for example DNp26 on both sides, DNp57_L, DNp07_L and both DNbe001 and DNg97 nodes) and are reachable only through interneurons.
+
+Relation to the literature literature
+
+Jang et al. 2023 report that several looming-responsive descending neurons, including the giant fiber, combine information from both eyes even though their dendrites sit on one side, and that contralateral information reaches the giant fiber through a pathway that was unidentified at the time. The mixed two-step numbers above are consistent in spirit with that. I have not checked whether the interneurons in this circuit are that pathway, and this is not evidence for it.
+
+I treat somaSide as the eye side, i.e. a left-soma looming detector is taken to see the left visual field. That is the usual arrangement for these cell types but I did not verify it for each one in this dataset.
+
+The circuit JSON
+
+flybrain_circuit.json is what the game reads: one object with a meta block, a list of nodes and a list of edges. It is on the order of 100 KB (my estimate for 88 nodes and 482 edges; ls -l will tell you). The layout below is schematic: the field names are exact, values marked … or in angle brackets are placeholders.
+
+{
+"meta": { "dataset": "male-cns v1.0",
+"input_types": ["LPLC2", "LC4", "LC6", "LPLC1"],
+"sign_rule": { "acetylcholine": 1, "gaba": -1, "glutamate": -1 },
+"min_edge": 10 },
+"nodes": [
+{ "id": "LPLC2_L", "type": "LPLC2", "side": "L", "layer": "input",
+"n": 94, "nt": "", "sign": <+1, -1 or 0> },
+{ "id": "LPLC4_R", "type": "LPLC4", "side": "R", "layer": "inter",
+"n": , "nt": "acetylcholine", "sign": 1 },
+{ "id": "DNp01_R", "type": "DNp01", "side": "R", "layer": "dn",
+"n": 1, "nt": "<…>", "sign": <…>, "subclass": "lt", "exit_nerve": "" }
+],
+"edges": [
+{ "pre": "", "post": "",
+"total": ,
+"per_post_neuron": ,
+"n_pre": <…>, "n_post": <…> }
+]
+}
+
+
+
+
+
+
+
+Field
+
+
+
+Meaning
+
+
+
+
+
+layer
+
+
+
+input (sensor), inter (relay) or dn (descending neuron)
+
+
+
+
+
+n
+
+
+
+Number of neurons in the node
+
+
+
+
+
+sign
+
+
+
++1, −1 or 0 from the node's majority neurotransmitter. The game applies the presynaptic node's sign to each outgoing edge
+
+
+
+
+
+total
+
+
+
+All synapses from every neuron in pre onto every neuron in post
+
+
+
+
+
+per_post_neuron
+
+
+
+total / n_post. This is the strength the game actually uses: how many synapses an average receiving neuron gets from the whole presynaptic node
+
+Only the sensor→descending, sensor→interneuron and interneuron→descending kinds of edge exist. The game ignores any edge that points at a sensor, and any edge whose endpoints are missing from nodes.
+
+Checking a claim against the file
+
+The JSON is small enough to interrogate directly. scripts/04_input_contributions.py prints, for the strongest descending-neuron nodes, how many direct synapses come from each sensor type:
+
+python scripts/04_input_contributions.py flybrain_circuit.json 12
+
+Use it to check, for example, whether DNp01 receives direct input from LC6 in this dataset, or how large LPLC2's share is compared with LC4's. Remember that edges under 10 synapses were already dropped.
+
+From obstacle to eye signal
+
+The fly has no camera. Each frame, every falling obstacle is turned into a single number per eye that stands for "how strongly is something looming at me on this side". Everything in this section is assumption: the connectome says nothing about how the sensor neurons are driven.
+
+φobstacle, fallingleft eye−130° to +5°right eye−5° to +130°heading (up)rear: blind beyond ±170°fly
+
+Figure 2. Geometry used to turn an obstacle into eye signals. The fly faces up. The bearing φ is measured clockwise from the heading. Each eye is drawn covering about 135°, with a nominal 10° overlap around straight ahead. Because sensitivity ramps in over 30° (from −25° to +5° for the right eye, mirrored for the left), the effective overlap is wider than the drawn wedges.
+
+Per obstacle
+
+Let p be the obstacle's centre relative to the fly, v its velocity relative to the fly, r its radius, d = |p| and R = 7 px the fly's radius.
+
+closing speed c = −(p·v) / d (skip the obstacle if c ≤ 0: it is receding)
+time of closest tca = −(p·v) / |v|²
+miss distance b = | p + v·tca |
+on-course gate g = exp( −( b / (1.3·(r+R) + 12) )² )
+expansion rate e = r·c / (d² + 0.5·r²) (per second)
+bearing φ = atan2(px, py) in degrees, + = right of heading
+half-width α = asin( min(1, r/d) )
+
+
+
+
+
+Expansion rate e is how quickly the obstacle's angular size grows. The exact figure for a circle is r·c / (d·√(d²−r²)); I soften the denominator so it stays finite when the obstacle is very close.
+
+
+
+The gate g is 1 for an obstacle heading straight for the fly and falls off for one that will pass wide. It stands in for the collision-course selectivity of looming detectors such as LPLC2, so a ball that will miss does not trigger an escape.
+
+Per eye
+
+s_R(φ) = smoothstep(−25°, +5°, φ) × ( 1 − smoothstep(130°, 170°, φ) ) s_L(φ) = s_R(−φ)
+ℓ_eye = Σ over obstacles [ mean of s_eye over 5 bearings in φ±α ] × g × e
+a_eye = ℓ² / (ℓ² + ℓ0²) ℓ0 = looming threshold
+
+Averaging the eye sensitivity across the obstacle's angular width matters for big, close obstacles that fill both eyes. a_eye is a Naka-Rushton saturating curve between 0 and 1; the Looming threshold slider sets ℓ0 (default 0.25 per second). Lower values make the fly react earlier.
+
+How the eye signal reaches the circuit
+
+Every sensor node on the left receives a_left and every sensor node on the right receives a_right, passed through a 20 ms first-order lag. All four sensor types get the same number, because the data does not tell me how their tuning differs. Sensor nodes with unknown side (?) get the average. Obstacles that have already burst are ignored.
+
+Consequence of this choice
+
+Since the four types are fed identically, any difference between them in the game comes purely from their wiring downstream, and silencing a type only removes its wiring's contribution, not a different kind of visual response.
+
+The rate model
+
+Left-eye sensorsLPLC2_L, LC4_L, LC6_L, LPLC1_L: 292 neuronsRight-eye sensorsLPLC2_R, LC4_R, LC6_R, LPLC1_R: 277 neuronsInterneuron nodes40 nodes, excitatory (+) or inhibitory (−) by neurotransmitterLeft-side descending neurons21 nodesRight-side descending neurons19 nodesS_Lsummed, scaled activityS_Rsummed, scaled activitydirect, same side onlydirect, same side only
+
+Figure 3. The circuit in the game. Solid lines carry the strongest, same-side connections; dashed lines are the weaker cross-side ones. Node counts are from the real export: 8 sensor nodes (569 neurons), 40 interneuron nodes, and 40 descending-neuron nodes of which 21 are left-side and 19 right-side. SL and SR feed the motor rule in the next section.
+
+Each node has an activity a between 0 and 1, standing for the average firing of its neurons. Sensor nodes are set from the eye signals. Every other node follows the equations below.
+
+weight w_ij = sign(node i) × per_post_neuron(i → j) from the data
+drive x_j = gain × ( Σ_i w_ij · a_i ) / scale(layer of j) + noise noise: Gaussian, σ = 0.04
+response f(x) = x / (1 + x) if x > 0, else 0
+dynamics τ · da_j/dt = −a_j + f(x_j) τ = 30 ms, Euler step 1/120 s
+
+
+
+
+
+Why per_post_neuron. If every presynaptic neuron fires at rate a, an average postsynaptic neuron receives per_post_neuron × a synapse-weighted drive. This normalises for how many neurons a node contains, so a big population is not automatically stronger.
+
+
+
+Why x/(1+x). A rectified saturating curve keeps every node between 0 and 1 no matter how large the synapse counts are.
+
+
+
+Why noise. It breaks ties. Without it, a perfectly symmetric situation (an obstacle straight overhead) would leave the fly frozen or always choosing the same side. Idle noise is small: in a 10-second test with no obstacles, the fly drifted at most 17 px from home.
+
+Calibration: turning raw synapse counts into sensible activity
+
+Raw counts span orders of magnitude (from the report: tens to thousands). Feeding them straight into f would either saturate everything or silence everything, so at load time the game calibrates three constants from one reference stimulus: all left-side sensors at activity 0.8 and all right-side sensors at 0.
+
+
+
+
+
+scale(inter) = the median of the positive interneuron drives. A typical driven interneuron then sits at x = 1, half saturation (a = 0.5).
+
+
+
+With those interneuron activities, scale(dn) = the median of the positive descending-neuron drives, in the same way.
+
+
+
+motor_scale is chosen so that the summed left-side descending activity for this stimulus equals 0.8.
+
+The right-side summed activity under the same stimulus is then a direct measure of how well the circuit separates sides. The game prints it when a file loads: "a strong looming object on the left drives left-side descending neurons to 0.80 and right-side ones to …". A value near 0 means a strongly lateralised circuit; a value near 0.80 means the circuit barely distinguishes left from right. On my made-up stand-in it was 0.53; for the real file, read your own status line.
+
+The three constants are computed once from the unmodified weights and then held fixed, so the controls in the game (silencing, rewiring) change the behaviour rather than silently re-tuning it.
+
+Limits assumption
+
+The node-level model has no time delays beyond the 30 ms lag, no adaptation, and no recurrent or interneuron-to-interneuron connections. It is a feed-forward snapshot of a two-step wiring diagram, not a simulation of neurons.
+
+From neurons to movement
+
+The circuit ends in descending-neuron activity. The dataset cannot tell me what each of these neurons does to a body, so the game uses a single rule for all of them. assumption
+
+S_L = motor_scale × Σ activity of left-side descending nodes S_R = the same for the right side
+T = S_L + S_R overall threat
+drive = T / (T + T0) T0 = 0.35
+asym = tanh( κ · (S_L − S_R) / (S_L + S_R + 0.05) ) κ = 10 ("Left/right decisiveness")
+sym = 1 − |asym|
+v_x = vmax · drive · asym (+ = move right)
+v_y = − vmax · retreat · drive · sym (− = move down) retreat = 0.5, vmax = 560 px/s
+
+In words: activity on the left pushes the fly right, and activity on the right pushes it left; if both sides are active about equally, the fly backs away downwards; if nothing is active, it drifts back home.
+
+Try it
+
+Left-side activity SL
+
+0.60
+
+Right-side activity SR
+
+0.10
+
+Decisiveness κ
+
+10
+
+threat drive–
+
+asym (right +)–
+
+vx px/s–
+
+vy px/s–
+
+up (home drift only)down (back away)
+
+Set SL and SR equal and the fly goes straight down; make one larger and it sidesteps away from that side. Raise κ and the sidestep becomes more decisive for small differences.
+
+Homing, the only way up
+
+When the threat drive is low the fly drifts back to its home point (450, 135) with a speed of min(200, 3 × distance) px/s, scaled by (1 − drive). That is the only source of upward motion. The tables carry no information about where in the visual field a neuron looks, so nothing in the wiring says "an obstacle is below, go up".
+
+Body dynamics
+
+v ← v + ( v_command + v_home·(1 − drive) − v ) · dt / 0.05 (τ_v = 50 ms)
+position ← position + v · dt clamped to the arena; altitude limited to 11–430 px
+
+The direction rule is a choice, and the literature is not on its side literature
+
+Jang et al. 2023 found that the giant fiber responds to looming about equally wherever in azimuth the stimulus appears, and that several looming-responsive descending neurons integrate both eyes. So real activity of these neurons does not, by itself, encode which way to flee. My rule ("left-side activity means move right") is a stand-in that makes the wiring's left/right structure visible in the game. It is a modelling device, not a claim about how a fly picks its escape direction.
+
+The rule also has an obvious blind spot: vertical avoidance is only "back away when both sides fire", so a fly cannot choose to climb over an obstacle. Section Where to go next discusses what would be needed to change that.
+
+The arena and the fly
+
+
+
+
+
+
+
+Item
+
+
+
+Value
+
+
+
+
+
+Arena
+
+
+
+900 × 620 units, side view, y up, floor at y = 0, no ceiling
+
+
+
+
+
+Physics
+
+
+
+Gravity 900 units/s²; fixed step 1/120 s; up to 12 steps per drawn frame
+
+
+
+
+
+Fly
+
+
+
+Radius 7; starts at home (450, 135); altitude limited to 11–430; faces up
+
+
+
+
+
+Obstacle size
+
+
+
+Click: radius = 8 + 52 × min(hold time / 1.2 s, 1), so 8 to 60. Drop button: random 10 to 55. Rain: 9 + 46 × u1.6, u uniform in 0–1 (mostly small)
+
+
+
+
+
+Drop
+
+
+
+Spawns at the click's x and at the drop height (default 94% of the arena height, 583 units), with zero speed
+
+
+
+
+
+Landing
+
+
+
+Bursts on first contact with the floor: fades over 0.35 s and no longer collides or is seen
+
+
+
+
+
+Rain
+
+
+
+A new obstacle every 0.45 to 1.35 s at a random x
+
+From the default drop height to the fly's home altitude, an obstacle falls 448 units, which takes about 1.0 s and ends at about 900 units/s (my arithmetic from the gravity constant). The fly can move at up to 560 units/s, so it has real time to react only if it notices the obstacle early. Lowering the drop height makes the game harder; the looming threshold slider makes the fly react sooner or later.
+
+Hits and the "dodged" score
+
+
+
+
+
+Hit: centre distance below r + 7. Counted once per obstacle; the fly is knocked away at 260 units/s and flashes red.
+
+
+
+Threat: an obstacle counts as a threat if, when it spawns, |x − fly.x| < r + 7 + 25. Only threats can be "dodged". Drops far to the side would otherwise inflate the score.
+
+
+
+Dodged: a threat that passes entirely below the fly, or reaches the floor, without hitting it.
+
+Why obstacles burst instead of bouncing
+
+An earlier version let obstacles bounce and roll on the floor. The fly's retreat rule then backed it into resting balls, which made the intact fly perform worse than one with no brain at all. Removing the floor clutter made the tests meaningful. The full story is in Mistakes found along the way.
+
+Using the game
+
+The game is a single file, game/fly_dodge.html, with no libraries and no network use. It has two panels: the arena on the left and the fly's circuit on the right.
+
+Loading the circuit
+
+
+
+
+
+Choose file, or drag flybrain_circuit.json onto the box. The file is read in the browser and goes nowhere else.
+
+
+
+Paste the JSON into the text box if a file picker is unavailable (some embedded viewers block it).
+
+
+
+Automatic: if the page is served over HTTP from the same folder as flybrain_circuit.json (for example with python -m http.server), it loads by itself. Opening the HTML straight from disk cannot do this, because browsers block reading a neighbouring file from a file:// page.
+
+After loading, the status line under the arena shows the size of the circuit and the calibration result described in The rate model. A malformed file gives a plain-language error instead of a blank screen.
+
+Dropping obstacles
+
+
+
+
+
+Click in the arena: an obstacle appears at the click's horizontal position, at the drop height (dashed line), and falls.
+
+
+
+Hold the button: a ghost circle grows at the top for up to 1.2 seconds; releasing drops it. Sliding the pointer sideways while holding moves it. Sizes run from radius 8 to 60.
+
+
+
+Touch screens work the same way. The Drop one button places a random obstacle, and is the keyboard-friendly way to play.
+
+What you see in the arena
+
+
+
+
+
+
+
+Element
+
+
+
+Meaning
+
+
+
+
+
+Blue dot
+
+
+
+The fly. It flashes red when hit
+
+
+
+
+
+Two amber wedges above the fly
+
+
+
+Its left and right eye fields; each glows in proportion to that eye's looming signal
+
+
+
+
+
+Fading blue line
+
+
+
+The fly's recent path
+
+
+
+
+
+Grey circles
+
+
+
+Obstacles. A red outline marks the one that hit the fly
+
+
+
+
+
+Dashed line
+
+
+
+Drop height
+
+What you see in the circuit panel
+
+
+
+
+
+Three bands from top to bottom: looming detectors (the eyes), interneurons, descending neurons. Left-side nodes are in the left half of each band and right-side nodes in the right half.
+
+
+
+Each circle fills in with its activity. Colour shows the node's kind: amber excitatory, violet inhibitory, teal for descending neurons.
+
+
+
+Lines are the connections; they brighten when the presynaptic node is active, in proportion to the connection's strength. Amber lines excite and violet lines inhibit.
+
+
+
+The most active nodes get a label. Hover any node for its cell type, neuron count, neurotransmitter, sign and current activity.
+
+
+
+Two bars at the bottom show SL and SR, and a sentence says what the motor rule is doing, for example "Threat 0.61 → sidestep right 84%".
+
+Controls
+
+
+
+
+
+
+
+Control
+
+
+
+What it does
+
+
+
+
+
+Drop one / Rain / Clear / Pause
+
+
+
+Add a random obstacle; toggle automatic random obstacles; remove all obstacles; freeze the simulation
+
+
+
+
+
+Drop height
+
+
+
+40% to 98% of the arena height. Lower is harder (less time to react)
+
+
+
+
+
+Looming threshold
+
+
+
+ℓ0 from 0.08 to 0.80 per second. Lower makes the fly react to smaller, more distant looming
+
+
+
+
+
+Network gain
+
+
+
+0.3× to 3× multiplier on every node's drive
+
+
+
+
+
+Left/right decisiveness
+
+
+
+κ from 2 to 20. Higher commits to a side on smaller left/right differences
+
+
+
+
+
+Silence type neurons
+
+
+
+Sets that sensor type's activity to zero (one checkbox per sensor type in your file)
+
+
+
+
+
+Control: rewire the connections at random
+
+
+
+Keeps every connection strength and source but swaps its target with another connection of the same kind. Destroys left/right and cell-type structure
+
+
+
+
+
+Control: cut the brain
+
+
+
+Removes the network's motor output; the fly only drifts home
+
+
+
+
+
+Reset score / Load another file
+
+
+
+Zero the counters; reopen the loader
+
+Experiments to try
+
+The controls are there so you can test whether the wiring matters, instead of taking it on faith. Hit and dodge counts are noisy, so run each condition for at least a minute of Rain, press Reset score between conditions, and treat differences of a few counts as noise.
+
+
+
+
+
+Intact against cut brain. Turn Rain on for 60 s with the defaults, note dodged and hit, reset, tick cut the brain and repeat. The brain-cut fly should be hit far more often. On the stand-in circuit over 90 simulated seconds: intact 12 dodged and 1 hit; brain cut 4 dodged and 8 hits.
+
+
+
+Intact against rewired. Repeat with rewire ticked. See the caveat in Results: this gap depends on the decisiveness setting.
+
+
+
+Silence one sensor type at a time. Because all sensor types get the same signal, differences between them reveal how much each one's wiring contributes to escape-related descending neurons in your file.
+
+
+
+Watch a left drop and a right drop. Drop an obstacle well to the left of the fly, then well to the right, while watching the circuit panel. Which descending nodes light up on which side? Compare SL and SR with the calibration line printed at load.
+
+
+
+Head-on drop. Drop directly above the fly. Both eyes see it, SL and SR are close, and noise decides which way it goes; try a few times and see the split.
+
+
+
+Turn the knobs. Lower the drop height and raise the looming threshold to make the game hard; raise decisiveness to see how much of the fly's success comes from that one setting.
+
+How it was tested
+
+Everything under tests/ can be re-run. The simulation core is loaded straight from the game file, so the tests always match the shipped code.
+
+
+
+
+
+
+
+File
+
+
+
+Run
+
+
+
+What it checks
+
+
+
+
+
+sweep.js
+
+
+
+node sweep.js
+
+
+
+112 single drops (4 sizes × 7 offsets × 4 seeds) under five conditions; a direction check at radius 30
+
+
+
+
+
+tune.js
+
+
+
+node tune.js
+
+
+
+How hit rate depends on decisiveness, retreat strength and looming threshold, for intact and rewired wiring
+
+
+
+
+
+rain.js
+
+
+
+node rain.js
+
+
+
+Idle stability, 90 s of random rain under three conditions, and odd input: unknown-sign interneuron, dangling edge
+
+
+
+
+
+ui_smoke.js
+
+
+
+npm install; node ui_smoke.js
+
+
+
+17 checks of the page in a headless browser (jsdom) with a mocked canvas: bad-file errors, loading, click and hold sizes, drop height, controls, hover on every node, auto-load, no script errors
+
+
+
+
+
+make_synthetic_feather.py
+
+
+
+python make_synthetic_feather.py out
+
+
+
+Writes tiny Feather tables with the real column names so scripts 02 to 04 can run end to end in seconds
+
+
+
+
+
+harness.js
+
+
+
+(library)
+
+
+
+Loads the core; builds the stand-in circuit
+
+The stand-in circuit
+
+not real data All the simulation tests run on a circuit I built by hand, saved as tests/STANDIN_not_real_circuit.json. Its interneuron in/out totals, its direct sensor-to-descending totals and its left-share percentages are copied from the real report. Everything else, including which interneuron connects to which descending neuron, the 75/25 same-side/other-side split and the 40/20/20/20 division between sensor types, is invented. It also has left/right structure built in. That is enough to test that the code works and that the controls behave; it cannot say whether the real circuit dodges well.
+
+Pipeline test on synthetic tables
+
+The export script the author ran on real data was reproduced from the project record, so I checked the copy in scripts/ by running scripts 02, 03 and 04 on synthetic Feather tables (255 neurons, 23,450 edges). They ran cleanly, produced a 24-node, 192-edge circuit, and that circuit passed the same 17 page checks as the stand-in.
+
+What is not tested
+
+
+
+
+
+The game with the real flybrain_circuit.json.
+
+
+
+Real rendering: pixels, layout on phones, frame rate. The canvas was mocked.
+
+
+
+Browsers other than the headless one, and touch input on a real device.
+
+
+
+Statistical significance: results below come from fixed seeds and one circuit.
+
+Results
+
+All numbers are from running tests/ on the stand-in circuit (not real data), default settings (κ = 10, retreat 0.5, looming threshold 0.25), 112 single drops per condition.
+
+Single drops: percentage of drops that hit the fly
+
+Intact wiring3% (3/112)
+
+LPLC2 silenced only4% (4/112)
+
+Rewired at random12% (13/112)
+
+All four sensor types silenced68% (76/112)
+
+Brain cut (drifts home only)71% (80/112)
+
+
+
+
+
+Silencing all sensors gives about the same result as cutting the brain, as it should.
+
+
+
+Silencing LPLC2 alone barely matters here (3 versus 4 hits). In the stand-in every sensor type feeds the same descending neurons (LPLC2 with a 40% share, the others 20% each), so silencing one leaves plenty of drive; this says nothing about the real LPLC2.
+
+Direction check
+
+An obstacle of radius 30 dropped at different horizontal offsets from the fly (negative = to the left), showing how far the fly's x position moved at most (positive = right):
+
+
+
+
+
+
+
+offset
+
+
+
+−60
+
+
+
+−30
+
+
+
+−10
+
+
+
+0
+
+
+
++10
+
+
+
++30
+
+
+
++60
+
+
+
+
+
+Intact: fly x shift
+
+
+
++45
+
+
+
++72
+
+
+
++94
+
+
+
+−115
+
+
+
+−101
+
+
+
+−79
+
+
+
+−51
+
+
+
+
+
+Rewired: fly x shift
+
+
+
+−76
+
+
+
+−103
+
+
+
+−90
+
+
+
+−87
+
+
+
+−84
+
+
+
+−73
+
+
+
+−49
+
+
+
+
+
+Rewired hits
+
+
+
+1
+
+
+
+1
+
+
+
+0
+
+
+
+0
+
+
+
+0
+
+
+
+0
+
+
+
+0
+
+With intact wiring the fly moves away from the obstacle every time (right when it is on the left, left when it is on the right). The offset-0 case is decided by noise. With rewired wiring the fly moves left whatever the side of the obstacle, and the two hits are exactly the two cases where the obstacle was on the left and the fly moved toward it.
+
+90 seconds of random rain
+
+
+
+
+
+
+
+Condition
+
+
+
+Dodged
+
+
+
+Hit
+
+
+
+
+
+Intact
+
+
+
+12
+
+
+
+1
+
+
+
+
+
+Rewired
+
+
+
+5
+
+
+
+2
+
+
+
+
+
+Brain cut
+
+
+
+4
+
+
+
+8
+
+How much does the result depend on the knobs?
+
+Percentage of the 112 drops that hit the fly, at looming threshold 0.25:
+
+
+
+
+
+
+
+κ (decisiveness)
+
+
+
+retreat
+
+
+
+Intact
+
+
+
+Rewired
+
+
+
+
+
+4
+
+
+
+0.5
+
+
+
+21%
+
+
+
+29%
+
+
+
+
+
+8
+
+
+
+0.5
+
+
+
+7%
+
+
+
+14%
+
+
+
+
+
+8
+
+
+
+0.9
+
+
+
+8%
+
+
+
+8%
+
+
+
+
+
+10 (default)
+
+
+
+0.5
+
+
+
+3%
+
+
+
+12%
+
+
+
+
+
+14
+
+
+
+0.5
+
+
+
+2%
+
+
+
+9%
+
+
+
+
+
+14
+
+
+
+0.2
+
+
+
+0%
+
+
+
+10%
+
+What to conclude, and what not to
+
+
+
+
+
+The mechanics work. The fly moves away from the side that is looming, is idle when nothing threatens, and does much worse without its eyes or its brain.
+
+
+
+The intact-versus-rewired gap is modest and knob-dependent. At the default it is 3% versus 12%, but at κ = 8 with strong retreat they are equal (8% each). Random rewiring often produces a constant sidestep bias, which dodges reasonably well on its own. A higher decisiveness setting makes both look good.
+
+
+
+None of this is evidence about the real fly. The stand-in has its left/right structure built in, so an intact advantage is close to guaranteed. The real test is running your own file with the same controls.
+
+Mistakes found along the way
+
+These are real problems that came up during the project, kept here because they explain several design decisions.
+
+1. pip refused to install (Arch Linux)
+
+error: externally-managed-environment. The system Python is protected. Fixed with a virtual environment. See Setting up Python.
+
+2. The first cell-type search printed nothing
+
+The first inspection script ran to the end but its "candidate cell types" list was empty. I first suspected it had run out of memory. That was wrong: the newer pandas stores text as a dedicated str dtype, and my check looked for object columns, so it skipped every text column. The fix was to select the columns by name (type, superclass) instead of by dtype. The packaged 02_inspect_schema.py already does this.
+
+3. An overstatement about LC6
+
+I said I was confident LC6 drives the giant fiber. Later checking of the literature showed LC6 is looming-responsive and evokes takeoff, but is reported not to be a direct giant-fiber input. Corrected in Choosing the cells, with a script to check it in the data.
+
+4. A shuffle control that did not shuffle the structure
+
+The first version of the control permuted the weights among the connections that already existed. Since which neurons connect to which is exactly what carries left/right structure, the fly still lateralised correctly and even hit less often than the intact one. It was not a control. It was replaced by rewiring: each connection keeps its source and strength but gets another connection's target. That produced the expected ordering (intact better than rewired better than no brain).
+
+5. Floor clutter made the intact fly worse than no brain
+
+Obstacles originally bounced and rolled after landing. In 90 s of rain the intact fly was hit 14 times against 8 for the brain-cut fly. Tracing the hits showed 33 of the 54 total came from balls lying or rolling on the floor: the retreat rule sent the fly downward into them, and, most likely, the floor lies largely outside the eye fields (I inferred this from the geometry, not from a separate experiment). Making obstacles burst on first contact fixed it (intact: 1 hit in 90 s).
+
+6. Too many head-on hits, then a knob that flatters everything
+
+With decisiveness 4, all 23 hits (out of 112 drops) were drops within 10 units of straight overhead (10 at offset 0 and 13 at offset −10 in the test grid): both eyes were stimulated almost equally and the sidestep was weak. At 10 only 3 hits remain (1 and 2 at the same offsets). It also made the rewired control look better (see Results), so it is a slider rather than a hidden constant.
+
+7. Small tooling slips
+
+A shell brace-expansion ({a,b,c}) did not work in /bin/sh and created a literal folder; corrected by running under bash. Nothing in the deliverables depends on it.
+
+The 3D version
+
+Everything above describes the original game: a hovering dot dodging obstacles in a flat, side-on arena. A second version puts the same brain in a room the fly actually flies through in three dimensions, with a real digitized fly model in place of the dot. This part of the docs covers only what's different. Anything not mentioned here — the connectome, the export script, the rate model's equations, the sign rule — is identical to the 2D version; the 3D game imports the exact same Brain class unchanged.
+
+
+
+
+
+
+
+Item
+
+
+
+2D version
+
+
+
+3D version
+
+
+
+
+
+File
+
+
+
+game/fly_dodge.html (38 KB)
+
+
+
+game/fly_dodge_3d.html (459 KB, model and textures embedded)
+
+
+
+
+
+Fly
+
+
+
+A dot, hovers, moves on 2 axes to dodge
+
+
+
+A modelled fly, flies continuously forward, steers on 3 axes
+
+
+
+
+
+Obstacles
+
+
+
+Fall straight down from a fixed line
+
+
+
+Fall from random points near the ceiling, drift sideways, bounce off walls
+
+
+
+
+
+Camera
+
+
+
+Fixed, looking at the whole arena
+
+
+
+Chase (third-person) or a free-flying camera you control
+
+
+
+
+
+Brain, export script, data
+
+
+
+Identical — same Brain class, same flybrain_circuit.json
+
+The reason for building this is explained in Where to go next above: memory was never the obstacle to a 3D room, and 3D doesn't fix the main limitation of this project (the tables give left/right, not elevation), but it does let the connectome's real left/right wiring do a more natural job — steering a moving body instead of pushing a hovering dot sideways.
+
+Free flight and 3D sensing
+
+The fly no longer hovers. It cruises forward at all times, and the brain's output steers it rather than moving it directly.
+
+Body and room
+
+
+
+
+
+
+
+Quantity
+
+
+
+Value
+
+
+
+
+
+Room
+
+
+
+260 × 165 × 260 units (X × Y × Z), floor at Y=0
+
+
+
+
+
+Gravity
+
+
+
+110 units/s²
+
+
+
+
+
+Cruise speed
+
+
+
+34 units/s (14–60 range; slows under threat)
+
+
+
+
+
+Max yaw / pitch rate
+
+
+
+2.3 / 1.35 rad/s
+
+
+
+
+
+Pitch clamp
+
+
+
+±1.02 rad (≈58°) — stops the fly flipping onto its back
+
+
+
+
+
+Turn smoothing
+
+
+
+180 ms time constant
+
+
+
+
+
+Fly collision radius
+
+
+
+5 units (up from 3 in the 2D game, sized to the real model's ~9-unit length)
+
+Orientation is yaw (turn) and pitch (climb/dive) only, no roll in the physics — the visual bank you see is cosmetic, added only in rendering (see The 3D fly model). The local frame is right-handed: forward is local +Z, up is local +Y, right is local +X, computed each step as right = (cos yaw, 0, −sin yaw), fwd = (sin yaw cos pitch, sin pitch, cos yaw cos pitch), up = right × fwd.
+
+Sensing: the same eye math, now in full 3D
+
+The 2D game measured a bearing in degrees around a fixed frame. The 3D game measures it relative to the fly's actual facing, using vector dot products instead of a fixed angle, so the same left/right split now depends on which way the fly is pointed:
+
+p = obstacle.pos − fly.pos (as before: closing speed, time-to-closest-approach, miss distance, gate g, expansion rate e — unchanged formulas, see From obstacle to eye signal)
+azimuth φ = atan2( p·right, p·fwd ) + = right of the fly's nose
+elevation ε = atan2( p·up, horizontal distance ) + = above the fly
+
+The same eyeSens(φ) ramp from the 2D game turns azimuth into a left/right split. Elevation feeds a new, separate quantity:
+
+vBias = (Σ sign(ε) · strength) / (Σ strength) strength = gate × expansion rate, summed over obstacles
+
+vBias runs from −1 (threats mostly below) to +1 (mostly above). I checked its sign in isolation before wiring it in: a closing obstacle placed above the fly gives vBias = 1, level gives 0, below gives −1.
+
+Motor: yaw from the data, pitch from geometry
+
+T = S_L + S_R drive = T / (T + T0) T0 = 0.4
+asym = tanh( κ (S_L−S_R) / (S_L+S_R+0.05) ) κ = 9 default (was 10 in 2D)
+yawCmd = k_yaw · drive · asym k_yaw = 1.0
+pitchCmd = −k_pitch · drive · vBias k_pitch = 0.6 default, slider-adjustable
+
+Yaw is the direct 3D equivalent of the 2D sidestep: it comes from S_L and S_R, the same real synapse-weighted descending-neuron activity as everywhere else in this project. Pitch has no connectome basis at all — the tables carry no information about elevation in the visual field, so vBias is pure scene geometry, not neural activity. It's gated by drive (computed from the real brain output) so the fly only dives or climbs when something real is actually threatening it, but the direction of that dive/climb is my invention, not a finding. The game's own on-page notes say this plainly, not just these docs.
+
+When nothing threatens the fly, a gentle, also-assumed autopilot steers it back toward the room's centre and mid-height so it doesn't just fly into a wall — the free-flight equivalent of the 2D game's homing behaviour, needed for playability, not derived from data.
+
+Obstacles
+
+Spawn near the ceiling (Y=152 of a 165-unit-tall room) at a random or clicked X/Z, each with its own small constant sideways drift assigned at spawn (26 / (1 + 0.12r) units/s, so smaller obstacles drift more), and gravity pulling them down. They bounce off the four walls (reversing the relevant drift component) but burst on touching the floor, fading over 0.35 s, exactly like landed obstacles in the 2D game.
+
+The 3D fly model
+
+The fly is no longer a placeholder cone. It's a real digitized model — the user supplied a fly.rar archive, which turned out to be a 1999 Viewpoint Datalabs insect model shipped in several formats (OBJ, 3DS, DXF, LWO) with two textures. None of this came from the connectome; it's a stand-in visual, not derived from any biological data in this project.
+
+Extraction
+
+The archive was a solid RAR (all files compressed as one stream). The freely available unrar-free couldn't extract it ("RAR solid archive support unavailable", and it silently stopped after the first file); unar handled it correctly and extracted all eight files.
+
+What was inside
+
+
+
+
+
+
+
+File
+
+
+
+Size
+
+
+
+Used?
+
+
+
+
+
+FLY.OBJ
+
+
+
+378 KB
+
+
+
+Yes — the only format actually parsed
+
+
+
+
+
+FLY.MTL
+
+
+
+289 B
+
+
+
+Read, to find the two texture file names
+
+
+
+
+
+FLY_BODY.TIF
+
+
+
+554×420, 320 KB
+
+
+
+Yes, converted
+
+
+
+
+
+FLY_WING.TIF
+
+
+
+652×420, 685 KB
+
+
+
+Yes, converted
+
+
+
+
+
+FLY.3DS, FLY.DXF, FLY.LWO, FLY.JPG
+
+
+
+80–720 KB each
+
+
+
+No — alternate formats / a tiny unrelated preview image
+
+The mesh itself: 1,635 vertices, 3,258 triangles (no quads), split into two named groups — fly_body (2,962 triangles) and fly_wing (296 triangles) — each with its own material and texture.
+
+Finding the orientation
+
+An OBJ file states no convention for which axis is forward. The raw vertex bounding box gave a first clue: X (wingspan) ranges ±2.75mm, Y (height) 0 to 2.62mm, and Z (length) −2.95mm to +1.64mm — asymmetric, meaning the model isn't centred at its own origin in Z. To find out which end was which, I rendered the raw triangles as orthographic wireframes (top, side, front views) directly from the vertex data, colour-coded by group. That made the shape unambiguous: a round head with legs splayed near the front, tapering to a larger abdomen at the back, wings attached near the shoulder. Head is at +Z, up is +Y, and X is left/right (the model is bilaterally symmetric, so handedness there doesn't visually matter).
+
+This mattered because the game's fly orientation math (above) already treats local +Z as forward and +Y as up — so once the model's own axes were confirmed to mean the same thing, it could be dropped straight into that frame with no extra rotation.
+
+Getting it into the browser
+
+A published page can't fetch outside files — no loading a separate .obj, .mtl or .tif at runtime. Everything had to be preprocessed into something that could be embedded as text in the HTML itself:
+
+
+
+
+
+Parse the OBJ myself (a few dozen lines of Python) rather than shipping an OBJ-parsing library. For each triangle corner, look up its position and UV coordinate and "unroll" them into flat, non-indexed arrays — simpler than reconstructing an indexed mesh, and small enough at this triangle count (9,774 corners total) not to matter.
+
+
+
+Centre and scale. Vertices were in metres (a real fly's actual size, ~5.5 × 2.6 × 4.6mm). Centred on the bounding-box midpoint, then scaled ×2000 so the model's total length comes out to about 9.2 game units — comparable to the old placeholder cone's length of 8, and the reason the fly's collision radius went from 3 to 5.
+
+
+
+Skip normals. Rather than compute or ship vertex normals, the browser calls BufferGeometry.computeVertexNormals() once at load time — a standard three.js method, one line, no extra data to embed.
+
+
+
+Convert and shrink the textures. TIFF isn't a web format. Both were converted to PNG and downsized to a maximum of 256px on the long edge (554×420 → 256×194 for the body; 652×420 → 256×164 for the wing).
+
+
+
+Embed everything as base64. Two float32 position arrays, two UV arrays, two PNGs — all inlined directly in the page's JavaScript as base64 strings, decoded in the browser with atob into Float32Arrays and data-URI textures.
+
+
+
+
+
+
+
+Asset
+
+
+
+Embedded size (base64)
+
+
+
+
+
+Body: positions + UVs
+
+
+
+142 KB + 95 KB
+
+
+
+
+
+Wing: positions + UVs
+
+
+
+14 KB + 9 KB
+
+
+
+
+
+Body texture (PNG)
+
+
+
+62 KB
+
+
+
+
+
+Wing texture (PNG)
+
+
+
+85 KB
+
+
+
+
+
+Total added to the page
+
+
+
+about 408 KB
+
+The finished fly_dodge_3d.html is 459 KB in total — still small enough to open instantly, nowhere near the 16 MB a published page allows.
+
+Checks made, and what's still unverified
+
+
+
+
+
+Checked: decoding the embedded base64 back into floats reproduces the exact expected triangle counts and a bounding box matching the intended ~9.2-unit scale; both embedded PNGs have valid file signatures; the whole page still passes its headless test suite with the real mesh wired in.
+
+
+
+Not checked: how it actually renders. There's no GPU in the environment these docs and the game were built in, so I have never seen the textures mapped onto the geometry, the shading, or the proportions against the room. If it looks flipped, inside-out, or oddly scaled, the fix is almost certainly in the centring/scale step or the material's side setting above — not a deep problem.
+
+Camera and room
+
+Two camera modes
+
+A Camera card in the controls switches between them; only one is active at a time.
+
+
+
+
+
+
+
+Mode
+
+
+
+Behaviour
+
+
+
+
+
+Chase (default)
+
+
+
+Third-person, glued behind and slightly above the fly, smoothly following its facing — the original view, unchanged. Click drops an obstacle where you click (raycast onto a plane near the ceiling); hold first to grow it; dragging while held slides the pending obstacle sideways.
+
+
+
+
+
+Free
+
+
+
+The camera stays wherever it is and stops following the fly. Arrow keys fly it around: Up/Down move forward/back along the exact direction the camera is facing (three.js's getWorldDirection), Left/Right strafe sideways. Click-and-drag looks around (mouse-look, yaw and pitch, pitch clamped to ±85° so it can't flip over). A plain click, with little or no drag, still drops an obstacle — only a real drag (past a 6px threshold) is treated as a look instead.
+
+Switching to Free starts exactly from where the chase camera was looking at that instant (computed from the chase camera's position and look-at target, converted to yaw/pitch), so there's no jump. Arrow keys only act when Free mode is on and the browser's focus isn't inside a text field, slider or other form control — so they don't hijack a slider you're adjusting with the keyboard.
+
+Design choice, not a connectome result: free flight plus a chase-or-manual camera was chosen over the original hover-in-place 2D design specifically because it gives the connectome's real left/right wiring something more natural to do — steering a moving body's turn, rather than pushing a stationary dot sideways.
+
+A paler room
+
+The room's background was originally a dark navy space, unrelated to the rest of this project's colour scheme. It now uses the same background colour as the surrounding page — literally the same CSS custom property, --bg — in both light and dark themes, so the 3D view sits inside the page rather than looking like a separate dark window cut into it. Grid lines and room-edge wireframes were recoloured to stay visible against a pale background (previously they only had to work against near-black); ambient lighting was brightened to match. This is a styling change only — it touches no simulation logic.
+
+Testing the 3D version
+
+The same approach as the 2D game: test the simulation math directly in Node first, then test the page's wiring in a headless browser. Nothing here involves an actual GPU — none was available while building this, so rendering itself (whether the textures map correctly, whether proportions and lighting look right) has never been seen, only reasoned about.
+
+Simulation checks (Node, no browser)
+
+
+
+
+
+
+
+Check
+
+
+
+Result
+
+
+
+
+
+Idle stability, 20 s, no obstacles
+
+
+
+No NaNs; pitch stays within its ±58° clamp; the fly stays inside the room (its diagonal distance from centre never exceeds the room's own diagonal)
+
+
+
+
+
+Turn-away direction, obstacle placed left/right of current heading
+
+
+
+The fly consistently turns away from the threatened side (confirmed the sign convention: activity on the left turns the fly right, matching the 2D game and the underlying data)
+
+
+
+
+
+Vertical bias sign, isolated unit test
+
+
+
+A closing obstacle above gives vBias=+1, level gives 0, below gives −1 — matches the intended dive-away/climb-away behaviour
+
+
+
+
+
+Threat realism check
+
+
+
+An early version of the hit-rate sweep returned 0/96 hits in every condition, including brain-cut — not a game bug, but a flawed test (obstacles spawned level with the fly fell to the floor under gravity before the fly's forward flight could reach them). Fixed by testing against continuous rain instead of single staged drops
+
+
+
+
+
+Rain, 120 s, averaged over 6 seeds, dense spawn
+
+
+
+Brain cut: 0 dodged, 5 hit (100% hit rate on genuine threats — confirms a threat really is dangerous with no evasion). Intact: 25 dodged, 6 hit (19% hit rate). Rewired: 36 dodged, 6 hit (14%) — on the stand-in circuit, whose built-in left/right structure survives rewiring better than in the 2D tests; see the honesty note below
+
+The rewired-vs-intact gap is smaller here than a first glance suggests
+
+Averaged over 6 seeds, rewired wiring actually resolved more total threats than intact (42 vs 31) and had a slightly lower hit rate (14% vs 19%) in this run. That doesn't mean rewiring works as well as the real wiring — both numbers come from the same made-up stand-in circuit used throughout this project's tests (How it was tested explains why), which has left/right structure baked into every layer, so a random rewiring of it still preserves a lot of usable structure by chance. What's solid is the brain-cut comparison: 100% hit rate with no brain versus roughly 1-in-5 or better with one, in any wiring. Whether the real connectome's specific wiring beats a random rewiring of itself is, as throughout this project, a question for your real flybrain_circuit.json file, not this stand-in.
+
+Page wiring checks (headless browser, three.js's API stubbed)
+
+There's no WebGL in this environment, so three.js itself was replaced with a small stand-in implementing only the calls the page actually makes (geometry, materials, vectors, the camera's getWorldDirection), enough to run the real page code and confirm it doesn't throw and does what it should — not to confirm anything renders correctly. All 25 checks pass:
+
+
+
+
+
+The original 16 (loading, bad-file errors, click/hold-to-grow, every slider, silence/rewire/cut-brain controls, hover on every circuit node, rain, pause, reset) — unchanged, still pass with the real fly model wired in.
+
+
+
+9 new: starts in Chase mode; switching to Free updates both buttons and the on-screen hint text; Arrow-Up actually moves the camera; the camera stays still with no keys held; dragging in Free mode does not drop an obstacle; a plain click in Free mode still does; switching back to Chase restores its hint text; Chase mode's hold-to-grow still works after switching modes; no JavaScript errors anywhere in the sequence.
+
+A mistake caught by the test itself
+
+An early version of the camera test "reloaded" the circuit mid-test to get a clean slate, which actually created a brand-new World3D object — while the test's own reference to the world still pointed at the old, now-abandoned one. Every obstacle-count check after that point was silently reading a frozen object that no longer received updates, which surfaced as a crash (reading a property of undefined) a few checks later rather than as an obviously wrong number. The fix needed two things: reopening the loader UI doesn't actually reset the world (so the reload was unnecessary to begin with), and rain mode — left on from an earlier check — needed to be explicitly turned off before counting obstacles deterministically. Left here because it's a good example of why "it crashed later" is often a stale-reference bug two steps earlier, not a bug where the crash happened.
+
+What was checked and what wasn't, specific to 3D
+
+
+
+
+
+
+
+Checked
+
+
+
+Not checked
+
+
+
+
+
+Simulation math: idle stability, turn direction, vertical-bias sign, hit rates under rain
+
+
+
+Whether the free camera's on-screen movement direction actually matches where it's pointed — the test stub fakes getWorldDirection as a fixed vector, so this exercises the wiring (key → function call) but not the real geometry, which depends on a standard, well-established three.js API
+
+
+
+
+
+Page wiring: every control, both camera modes, click-vs-drag distinction, model loading
+
+
+
+Actual rendering: textures on the mesh, lighting, the room's colour in a real browser, frame rate, proportions, touch input on a real device
+
+Real, assumed, unverified
+
+One place that lists every step of the pipeline by how well supported it is. If you extend the project, this is the list to challenge first.
+
+
+
+
+
+
+
+Statement
+
+
+
+Status
+
+
+
+Comment
+
+
+
+
+
+Cell counts per type and side (e.g. LPLC2: 94 left, 91 right)
+
+
+
+from the data
+
+
+
+Printed by the export script
+
+
+
+
+
+Synapse counts between cell types, aggregated from the weights table
+
+
+
+from the data
+
+
+
+Subject to the dataset's own confidence filter (minconf-0.5 in file names)
+
+
+
+
+
+Direct sensor→descending wiring is same-side; two-step wiring mixes sides
+
+
+
+from the data
+
+
+
+Counted from the 40-row report; see Reading the export report
+
+
+
+
+
+Each node's neurotransmitter
+
+
+
+from the data but predicted
+
+
+
+Model predictions with confidence values; the giant fiber's is only 0.50 per neuron
+
+
+
+
+
+Acetylcholine = excitatory; GABA and glutamate = inhibitory; others = no effect
+
+
+
+assumption
+
+
+
+Glutamate can be excitatory or inhibitory in flies
+
+
+
+
+
+Soma side = which eye the neuron sees
+
+
+
+assumption
+
+
+
+Usual arrangement, not checked per type
+
+
+
+
+
+LPLC2 and LC4 feed the giant fiber's size and velocity signals
+
+
+
+literature
+
+
+
+Ache et al. 2019
+
+
+
+
+
+LC6 is looming-responsive but not a direct giant-fiber input
+
+
+
+literature
+
+
+
+Reported in the eLife LC6 study; checkable in this data with script 04
+
+
+
+
+
+LPLC1 belongs in the sensor set
+
+
+
+assumption
+
+
+
+My judgment; no source
+
+
+
+
+
+All four sensor types get the same looming signal
+
+
+
+assumption
+
+
+
+Data gives no tuning information
+
+
+
+
+
+Looming formula, collision gate, eye fields
+
+
+
+assumption
+
+
+
+Simple geometry; not fitted to fly vision
+
+
+
+
+
+Node-level rate model, saturating response, 30 ms lag, calibration by medians
+
+
+
+assumption
+
+
+
+Chosen for stability with wildly varying synapse counts
+
+
+
+
+
+Top 40 interneurons by √(in×out) and top 40 descending nodes by drive
+
+
+
+assumption
+
+
+
+Selection by synaptic strength, not by function; could miss important weak pathways
+
+
+
+
+
+Left-side descending activity moves the fly right, right-side moves it left
+
+
+
+assumption
+
+
+
+Giant fiber is reported to respond similarly at all azimuths (Jang et al. 2023), so this is a device, not a finding
+
+
+
+
+
+Equal left and right activity makes the fly back away downward
+
+
+
+assumption
+
+
+
+Chosen to give the fly a second movement axis
+
+
+
+
+
+Up motion arises only from homing
+
+
+
+assumption
+
+
+
+No elevation information in the tables used
+
+
+
+
+
+These descending neurons actually control escape steering
+
+
+
+not validated
+
+
+
+They are strongly driven by the sensors, which is not the same thing
+
+
+
+
+
+The real circuit dodges well in the game
+
+
+
+not validated
+
+
+
+Not run by me on real data, in either the 2D or 3D version
+
+
+
+
+
+Meaning of subclass codes and minconf-0.5
+
+
+
+not verified
+
+
+
+Check the dataset documentation
+
+
+
+
+
+3D: which way the fly model faces (head at +Z, up +Y)
+
+
+
+determined, not from data
+
+
+
+Worked out from the raw mesh geometry; see The 3D fly model
+
+
+
+
+
+3D: climb/dive direction (vBias)
+
+
+
+assumption
+
+
+
+Pure scene geometry — the tables carry no elevation information at all
+
+
+
+
+
+3D: free flight is a better fit for the wiring than hovering-in-place
+
+
+
+assumption / design judgment
+
+
+
+My reasoning, not a measured result
+
+
+
+
+
+3D: the fly model renders correctly (textures, shading, proportions)
+
+
+
+not validated
+
+
+
+No GPU available while building; only decoding and file-format checks were possible
+
+Troubleshooting
+
+
+
+
+
+
+
+Symptom
+
+
+
+Cause
+
+
+
+Fix
+
+
+
+
+
+error: externally-managed-environment
+
+
+
+PEP 668 protection on Arch and similar
+
+
+
+Use the virtual environment: bash scripts/00_setup_venv.sh
+
+
+
+
+
+ModuleNotFoundError: No module named 'pyarrow'
+
+
+
+The venv is not active, or the install failed
+
+
+
+source ~/flybrain-venv/bin/activate and pip install pandas pyarrow
+
+
+
+
+
+No file starting with "body-annotations"
+
+
+
+Wrong folder, or nothing downloaded
+
+
+
+cd to the folder with the .feather files; run 01_download.sh
+
+
+
+
+
+Download stops part-way
+
+
+
+Network interruption
+
+
+
+Re-run 01_download.sh; curl -C - resumes
+
+
+
+
+
+Killed or MemoryError during export
+
+
+
+Out of RAM
+
+
+
+Close other programs; lower CHUNK in the script (for example 2_000_000); if it still fails, query neuPrint instead of using bulk files
+
+
+
+
+
+A search of text columns finds nothing
+
+
+
+Newer pandas uses a str dtype, not object
+
+
+
+Select columns by name, as the packaged scripts do
+
+
+
+
+
+Game says "This is not a flybrain_circuit.json file"
+
+
+
+Wrong JSON file
+
+
+
+Use the file written by script 03; it must contain nodes and edges
+
+
+
+
+
+The Choose file button does nothing
+
+
+
+Some embedded viewers block file pickers
+
+
+
+Open the HTML in a normal browser, or use Paste the JSON instead
+
+
+
+
+
+Circuit does not load by itself
+
+
+
+The page was opened from disk (file://)
+
+
+
+Serve the folder: python -m http.server 8000; or pick the file by hand
+
+
+
+
+
+The fly never reacts
+
+
+
+Looming threshold too high; sensors silenced; brain cut ticked
+
+
+
+Lower the threshold; untick the controls; check the calibration line at load
+
+
+
+
+
+The fly always moves the same way
+
+
+
+Rewire control on, or a nearly symmetric circuit
+
+
+
+Untick rewire. If the calibration line shows right ≈ left, the circuit barely separates sides
+
+
+
+
+
+Different node or edge counts from 88 and 482
+
+
+
+You changed INPUT_TYPES, N_INTER, N_DN or MIN_EDGE
+
+
+
+Expected; the game adapts to whatever the file contains
+
+File reference
+
+flybrain-dodge/
+├── README.md
+├── docs/index.html this documentation (offline, single file)
+├── game/
+│ ├── fly_dodge.html the 2D game (single file, no dependencies)
+│ └── fly_dodge_3d.html the 3D game (single file; fly model + textures embedded, 459 KB)
+├── scripts/
+│ ├── 00_setup_venv.sh create the Python environment
+│ ├── 01_download.sh fetch the 3 tables (~1.1 GB)
+│ ├── 02_inspect_schema.py schemas, first rows, cell-type counts
+│ ├── 03_export_circuit.py tables → flybrain_circuit.json + report
+│ └── 04_input_contributions.py which sensor types feed which descending neuron
+├── tests/
+│ ├── harness.js, sweep.js, tune.js, rain.js 2D simulation tests
+│ ├── ui_smoke.js, package.json 2D headless page checks (needs npm install)
+│ ├── make_synthetic_feather.py tiny fake tables for a quick pipeline run
+│ ├── STANDIN_not_real_circuit.json made-up circuit, used by both games' tests
+│ └── 3d/
+│ ├── core3d.js the 3D simulation core (imported by the tests below)
+│ ├── test3d.js, test3d_rain.js 3D simulation tests: idle, direction, hit rate, rain
+│ ├── smoke3d.js, three_stub.js 3D headless page checks with three.js's API stubbed
+│ └── fly_model_data.js the embedded fly model, as its own file (for reference)
+└── examples/
+├── real_export_report.txt output of script 03 on the real data
+└── real_inspect_output.txt output of script 02 on the real data
+
+flybrain_circuit.json is deliberately not included: it is produced on your machine from the real tables by script 03, and I never had a copy. The 3D game's fly model is included pre-built inside fly_dodge_3d.html itself; the original fly.rar the user supplied is not redistributed here.
+
+Parameter reference
+
+Export script (03_export_circuit.py)
+
+
+
+
+
+
+
+Setting
+
+
+
+Default
+
+
+
+Effect
+
+
+
+
+
+INPUT_TYPES
+
+
+
+LPLC2, LC4, LC6, LPLC1
+
+
+
+Sensor cell types. Add e.g. 'LC16' to include it
+
+
+
+
+
+N_INTER
+
+
+
+40
+
+
+
+Interneuron nodes kept
+
+
+
+
+
+N_DN
+
+
+
+40
+
+
+
+Descending-neuron nodes kept
+
+
+
+
+
+MIN_EDGE
+
+
+
+10
+
+
+
+Minimum total synapses for an edge to be written
+
+
+
+
+
+CHUNK
+
+
+
+10,000,000
+
+
+
+Rows processed at a time; lower to save memory
+
+
+
+
+
+SIGN
+
+
+
+ACh +1; GABA, glutamate −1
+
+
+
+Neurotransmitter to sign
+
+World constants (CFG in the game)
+
+
+
+
+
+
+
+Name
+
+
+
+Value
+
+
+
+Meaning
+
+
+
+
+
+W, H
+
+
+
+900, 620
+
+
+
+Arena size
+
+
+
+
+
+g
+
+
+
+900
+
+
+
+Gravity (units/s²)
+
+
+
+
+
+dt
+
+
+
+1/120 s
+
+
+
+Fixed time step
+
+
+
+
+
+flyR
+
+
+
+7
+
+
+
+Fly radius
+
+
+
+
+
+burstTime
+
+
+
+0.35 s
+
+
+
+Fade time after landing
+
+
+
+
+
+vmax
+
+
+
+560
+
+
+
+Maximum commanded speed
+
+
+
+
+
+tauV
+
+
+
+0.05 s
+
+
+
+Velocity response time
+
+
+
+
+
+homeX, homeY
+
+
+
+450, 135
+
+
+
+Home position
+
+
+
+
+
+kHome, vHome
+
+
+
+3.0, 200
+
+
+
+Homing gain (1/s) and speed cap
+
+
+
+
+
+flyMaxY
+
+
+
+430
+
+
+
+Maximum altitude
+
+
+
+
+
+tauNode
+
+
+
+0.03 s
+
+
+
+Node time constant
+
+
+
+
+
+refLoom
+
+
+
+0.8
+
+
+
+Sensor activity in the calibration stimulus
+
+Tunable defaults (DEFAULTS, exposed as sliders where marked)
+
+
+
+
+
+
+
+Name
+
+
+
+Default
+
+
+
+Slider?
+
+
+
+Meaning
+
+
+
+
+
+sens (ℓ0)
+
+
+
+0.25
+
+
+
+Looming threshold
+
+
+
+Half-saturation of the eye response, per second
+
+
+
+
+
+gain
+
+
+
+1
+
+
+
+Network gain
+
+
+
+Multiplier on every node's drive
+
+
+
+
+
+dropFrac
+
+
+
+0.94
+
+
+
+Drop height
+
+
+
+Spawn height as a fraction of arena height
+
+
+
+
+
+kappa (κ)
+
+
+
+10
+
+
+
+Left/right decisiveness
+
+
+
+Steepness of the left/right choice
+
+
+
+
+
+T0
+
+
+
+0.35
+
+
+
+no
+
+
+
+Threat at which the escape drive is half maximal
+
+
+
+
+
+retreat
+
+
+
+0.5
+
+
+
+no
+
+
+
+Strength of the back-away response
+
+Other constants inside the code: sensor input lag 20 ms; network noise σ 0.04; homing blends with weight 1 − drive; hit knock-back 260 units/s; eye fields as in From obstacle to eye signal.
+
+Glossary
+
+
+
+
+
+
+
+Term
+
+
+
+Meaning
+
+
+
+
+
+Connectome
+
+
+
+A complete wiring diagram of a nervous system: every neuron and the synapses between them
+
+
+
+
+
+Synapse
+
+
+
+The junction where one neuron signals to another. In the tables a connection's weight is a synapse count
+
+
+
+
+
+Soma, soma side
+
+
+
+The cell body of a neuron, and which side of the body it lies on (somaSide: L or R)
+
+
+
+
+
+Cell type
+
+
+
+A group of neurons that look and connect alike, such as LPLC2. The type column
+
+
+
+
+
+Superclass
+
+
+
+A coarse grouping in the annotations, such as visual_projection or descending_neuron
+
+
+
+
+
+Node, edge
+
+
+
+In this project: all neurons of one cell type and side, and the summed synapses between two nodes
+
+
+
+
+
+Visual projection neuron
+
+
+
+A neuron that carries visual features from the optic lobe to the central brain
+
+
+
+
+
+Looming
+
+
+
+An object growing on the retina, usually because it is approaching
+
+
+
+
+
+LPLC2, LC4, LC6, LPLC1
+
+
+
+Visual projection cell types named for where they connect (lobula plate and lobula columnar for LPLC, lobula columnar for LC). See the literature notes
+
+
+
+
+
+Interneuron
+
+
+
+A neuron between input and output. Here: any neuron on a sensor→X→descending path
+
+
+
+
+
+Descending neuron (DN)
+
+
+
+A neuron whose axon runs from the brain to the nerve cord to influence the body
+
+
+
+
+
+Giant fiber (DNp01)
+
+
+
+A descending neuron pair whose spike timing is reported to shape escape takeoff (Ache et al. 2019). Labelled DNp01(GF) in the dataset
+
+
+
+
+
+Acetylcholine, GABA, glutamate
+
+
+
+Neurotransmitters. Here acetylcholine is treated as exciting the next cell, the other two as inhibiting it
+
+
+
+
+
+Azimuth
+
+
+
+Horizontal angle in the visual field
+
+
+
+
+
+Retinotopy
+
+
+
+Neighbouring points in the visual world map to neighbouring neurons
+
+
+
+
+
+Rate model
+
+
+
+A model where each unit has a single activity level between 0 and 1 instead of individual spikes
+
+
+
+
+
+Naka-Rushton / Michaelis-Menten
+
+
+
+Saturating curves x²/(x²+k²) and x/(1+x) used to keep activity bounded
+
+
+
+
+
+Feather
+
+
+
+Apache Arrow's on-disk table format; read with pyarrow or pandas
+
+
+
+
+
+neuPrint
+
+
+
+The web service and API that hosts this connectome
+
+
+
+
+
+PEP 668
+
+
+
+The Python rule behind externally-managed-environment
+
+Where to go next
+
+A 3D room — built
+
+This was discussed, then built; see The 3D version for the full writeup. The predictions from the original discussion held up:
+
+
+
+
+
+Memory was not the obstacle. The finished fly_dodge_3d.html is 459 KB, and the 1.1 GB weights file was only ever needed once, offline, to build the small circuit JSON. No measurement of in-browser memory use was possible in this environment (no GPU), but nothing in the design should come close to being a problem on a 16 GB laptop.
+
+
+
+3D did not fix the main limit, as predicted. Left/right steering is data-driven, exactly as expected. Climb and dive are a geometric stand-in with no connectome support, exactly as predicted — and with a third axis actually in use, that gap is more visible in the finished game than it was in the 2D one, not less.
+
+
+
+The retinotopy route was not attempted. Elevation still doesn't come from the data; it comes from where obstacles happen to sit around the fly right now. The syn-points route described below remains open.
+
+
+
+The design choice was settled: free flight, not hovering-in-place. The fly turns and dives away from threats rather than sidestepping them, which is a better fit for what the real wiring's left/right signal can actually justify.
+
+What wasn't part of the original discussion, and got added while building: a real fly model in place of the placeholder cone (from a user-supplied file, see The 3D fly model), and two camera modes including a free-flying manual camera (see Camera and room).
+
+Still open: elevation from real data
+
+The 12.7 GB syn-points table holds synapse positions. As I understand it, the looming detectors' dendrites are arranged retinotopically in the optic lobe, so synapse positions could in principle give each neuron an approximate look direction. I have not checked that the table supports this, and the mapping would be approximate. It would also mean modelling individual neurons: 569 sensors plus 1,314 descending neurons, and the neuron-level tables the export script filters (505,699 sensor-outgoing rows and 818,956 descending-incoming rows, with direct connections counted in both). That is feasible in a browser only with a compact binary file, and reading syn-points would need batch reading rather than loading it into pandas. This is the one piece of the original 3D discussion that remains exactly where it was.
+
+Smaller steps that need no new data
+
+
+
+
+
+Add LC16 to INPUT_TYPES and compare the resulting circuit.
+
+
+
+Use script 04 to check the literature claims about LC4, LPLC2 and LC6 against the real synapse counts.
+
+
+
+Let each sensor type have its own tuning (for example size-sensitive versus speed-sensitive) once you have a reason from the literature.
+
+
+
+Include three-step paths, or interneuron-to-interneuron edges, and see whether the left/right structure changes.
+
+
+
+Replace the single motor rule with roles for individual descending neurons taken from published function.
+
+Project log
+
+How the project unfolded, in order.
+
+
+
+
+
+Sizing the download. The dataset page lists seven tables totalling about 24.1 GB, plus skeletons, a database and image volumes that are not sized. The EM volume shape implies about a petabyte uncompressed (my arithmetic).
+
+
+
+The idea. A game in which a blue dot at the bottom dodges obstacles that fall when the user clicks, steered by the male connectome. I explained that the full connectome cannot run in a web page, so the plan became a small subset: sensors, relays and descending neurons, with the real weights.
+
+
+
+Choosing the files. Only 1.2 GB of the 24 GB was needed: annotations, neurotransmitters and weights. The three files downloaded fine.
+
+
+
+Setting up Python. pip refused on Arch; a virtual environment fixed it.
+
+
+
+First look at the tables. Schemas and sample rows appeared. The weights table has 151,856,684 rows. The cell-type search returned nothing because of the pandas string-dtype issue; fixed by selecting columns by name.
+
+
+
+Confirming the cell types. Counts for LPLC2 (185), LC4 (126), LPLC1 (134), LC6 (124) and the descending-neuron classes confirmed the plan was feasible.
+
+
+
+Building the circuit. The export script ran on the real data, producing 88 nodes and 482 edges and the report reproduced in this documentation. The report showed same-side direct wiring, mixed two-step wiring, and LPLC4 as the top relay.
+
+
+
+Designing the game around the data. Because only left/right is in the data, the earlier idea of four movement groups was dropped in favour of the left/right, back-away and homing rule.
+
+
+
+Testing and repairing. A stand-in circuit built from the report numbers exposed a broken control, floor clutter and a head-on weakness (all in Mistakes found along the way). The page was tested headlessly and published as a hosted page.
+
+
+
+Discussing 3D. Concluded that memory is not the limit and that elevation from data would need the synapse-position tables.
+
+
+
+This package. Documentation, scripts, tests, examples and the game bundled for offline use. While preparing it I checked the literature, which led to the LC6 correction and the caveat on the direction rule; and I reproduced the export script from the project record and re-ran it on synthetic data.
+
+
+
+Building the 3D version. Free-flight physics and full-3D sensing, reusing the same Brain class unchanged. A stand-in circuit test run again exposed real problems before anything was published: a naive test scenario that reported 0% hits in every condition (a flawed test, not a game bug — fixed by testing against continuous rain instead of staged single drops).
+
+
+
+Adding the real fly model. The user supplied fly.rar, a 1999 digitized insect model. Extracting it needed a proper unrar (the free one couldn't handle its solid-archive compression). The model's orientation wasn't stated anywhere in the file, so I rendered orthographic wireframes of the raw geometry to work it out before placing it in the scene. Parsed, centred, scaled and embedded as base64 so the published page needs no external files.
+
+
+
+Camera and room styling. Added a Chase/Free camera toggle (arrow keys plus click-drag for the free camera) and repainted the room to match the surrounding page's background instead of a dark, unrelated navy. A stale-object-reference bug in the camera tests themselves (see Testing the 3D version) was caught and fixed before publishing.
+
+
+
+This update. Extended this documentation with the 3D version's own sections, and updated the file reference, assumptions table and roadmap to match.
+
+Sources and credits
+
+Dataset
+
+MaleCNS connectome, release v1.0. male-cns.janelia.org/download. A collaboration between FlyEM (HHMI Janelia), the University of Cambridge (Dept. of Zoology), the MRC Laboratory of Molecular Biology, and Google Research. Licensed CC-BY: credit the dataset if you share results, and use the citation the project site gives (the download page mentions a manuscript but I did not identify its reference here).
+
+Literature
+
+
+
+
+
+Ache JM, Polsky J, Alghailani S, Parekh R, Breads P, Peek MY, Bock DD, von Reyn CR, Card GM. Neural basis for looming size and velocity encoding in the Drosophila giant fiber escape pathway. Current Biology 29(6):1073–1081, 2019. doi:10.1016/j.cub.2019.01.079. Used for: LC4 (velocity) and LPLC2 (size) inputs to the giant fiber.
+
+
+
+Jang H, Goodman DP, Ausborn J, von Reyn CR. Azimuthal invariance to looming stimuli in the Drosophila giant fiber escape circuit. Journal of Experimental Biology 226(8):jeb244790, 2023. doi:10.1242/jeb.244790. Used for: bilateral integration and azimuth invariance in looming-responsive descending neurons.
+
+
+
+Klapoetke NC, Nern A, Peek MY, Rogers EM, Breads P, Rubin GM, Reiser MB, Card GM. Ultra-selective looming detection from radial motion opponency. Nature 551, 2017. Used for: LPLC2 as a looming detector.
+
+
+
+"Spatial readout of visual looming in the central brain of Drosophila", eLife, doi:10.7554/eLife.57685. Used for: LC6 responses and its relation to the giant fiber pathway (I have cited it by title and DOI because its author list was not in the material I consulted).
+
+3D fly model
+
+A digitized fly model (OBJ/3DS/DXF/LWO with two textures), dated August 1999 and marked "Created with Viewpoint Interchange, www.viewpoint.com" in its own file header — Viewpoint Datalabs was a commercial 3D model library of that era. Supplied by the user as fly.rar; its original licence terms were not available to me, so treat its reuse as the user's own to determine. Not connectome data, and not covered by the dataset's CC-BY licence above.
+
+Tools
+
+Python with pandas and pyarrow; the game and tests in plain JavaScript; jsdom for the headless page tests; three.js (r128) for 3D rendering; Pillow for the 3D fly model's texture conversion; unar for extracting the model's solid RAR archive.
+
+Fly Dodge documentation · version 1.0 · written 21 September 2026. The statements in this document are only as good as the checks described in it; see Real, assumed, unverified.
