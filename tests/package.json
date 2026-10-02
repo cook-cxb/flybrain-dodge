@@ -1,0 +1,3 @@
+{ "name": "flybrain-dodge-tests", "private": true, "version": "1.0.0",
+  "description": "Headless checks for the game page. Run: npm install && node ui_smoke.js [path/to/circuit.json]",
+  "devDependencies": { "jsdom": "^30.0.0" } }
