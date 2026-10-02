@@ -1,0 +1,49 @@
+cff-version: 1.2.0
+message: "If you use this software or its circuit-extraction pipeline, please cite it as below."
+title: "Fly Dodge: A Connectome-Steered Sensorimotor Circuit Extracted from the Male Drosophila CNS"
+type: software
+authors:
+  - family-names: "YOUR_LAST_NAME"
+    given-names: "YOUR_FIRST_NAME"
+repository-code: "https://github.com/YOUR_USERNAME/flybrain-dodge"
+version: 1.0.0
+date-released: 2026-10-02
+license: MIT
+keywords:
+  - connectome
+  - drosophila
+  - neuroscience
+  - bio-inspired-robotics
+  - edge-ai
+references:
+  - type: dataset
+    title: "MaleCNS connectome (male-cns:v1.0)"
+    authors:
+      - name: "FlyEM, HHMI Janelia"
+      - name: "University of Cambridge, Department of Zoology"
+      - name: "MRC Laboratory of Molecular Biology"
+      - name: "Google Research"
+    url: "https://male-cns.janelia.org/"
+    license: "CC-BY-4.0"
+  - type: article
+    title: "Neural basis for looming size and velocity encoding in the Drosophila giant fiber escape pathway"
+    authors:
+      - family-names: "Ache"
+        given-names: "J. M."
+    journal: "Current Biology"
+    volume: 29
+    issue: 6
+    start: 1073
+    end: 1081
+    year: 2019
+    doi: "10.1016/j.cub.2019.01.079"
+  - type: article
+    title: "Azimuthal invariance to looming stimuli in the Drosophila giant fiber escape circuit"
+    authors:
+      - family-names: "Jang"
+        given-names: "H."
+    journal: "Journal of Experimental Biology"
+    volume: 226
+    issue: 8
+    year: 2023
+    doi: "10.1242/jeb.244790"
