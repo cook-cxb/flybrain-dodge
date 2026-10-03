@@ -3,9 +3,9 @@ message: "If you use this software or its circuit-extraction pipeline, please ci
 title: "Fly Dodge: A Connectome-Steered Sensorimotor Circuit Extracted from the Male Drosophila CNS"
 type: software
 authors:
-  - family-names: "YOUR_LAST_NAME"
-    given-names: "YOUR_FIRST_NAME"
-repository-code: "https://github.com/YOUR_USERNAME/flybrain-dodge"
+  - family-names: "Khan Niazi"
+    given-names: "Aizaz Ullah"
+repository-code: "https://github.com/cook-cxb/flybrain-dodge"
 version: 1.0.0
 date-released: 2026-10-02
 license: MIT
