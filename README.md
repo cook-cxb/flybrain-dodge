@@ -10,8 +10,9 @@
   <img alt="Dataset: CC-BY" src="https://img.shields.io/badge/dataset-CC--BY-lightgrey.svg">
   <img alt="Status" src="https://img.shields.io/badge/status-research%20prototype-orange.svg">
   <img alt="No build step" src="https://img.shields.io/badge/build-none%20required-brightgreen.svg">
-  <img alt="Article" src="https://zenodo.org/records/23185744">
 </p>
+[https://zenodo.org/records/23185744]
+
 ---
 
 ## Abstract
