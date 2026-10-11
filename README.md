@@ -159,3 +159,7 @@ Code in this repository is released under the [MIT License](LICENSE). The connec
 - Jang H, Goodman DP, Ausborn J, von Reyn CR (2023). Azimuthal invariance to looming stimuli in the *Drosophila* giant fiber escape circuit. *Journal of Experimental Biology* 226(8):jeb244790. doi:10.1242/jeb.244790
 - Klapoetke NC, Nern A, Peek MY, Rogers EM, Breads P, Rubin GM, Reiser MB, Card GM (2017). Ultra-selective looming detection from radial motion opponency. *Nature* 551. 
 - Spatial readout of visual looming in the central brain of *Drosophila*. *eLife*. doi:10.7554/eLife.57685
+
+
+## 14. Research Article
+[https://zenodo.org/records/23185744]
